@@ -75,12 +75,13 @@
 
 ## 이 문서 세트에 대응하는 저장된 이벤트 (양방향 provenance)
 
-| 이벤트 | 내용 | 근거 문서 |
-|---|---|---|
-| `evt_7f0846bfc503419599493d07176a94d0` | 결정 — 스택: FastAPI + 순수 Python 엔진 (TS+Canvas 기각) | [03_architecture.md](03_architecture.md) |
-| `evt_87b564e85ee14c4695bcec3435671e81` | 결정 — 사전 설계 전환점 교체 (실시간→턴제 폐기, 즉시판정→에너지 채택) | [04_turn_system_pivot.md](04_turn_system_pivot.md) |
-| `evt_d61ded1d63a44403857b5881457f70ff` | 결정 — 저장 규약 확정 + 문서 세트 | [06_memory_protocol.md](06_memory_protocol.md) |
+| 이벤트 | 내용 | 근거 문서 | 커밋 |
+|---|---|---|---|
+| `evt_cb9a017f8342488badd283b5c3db6f24` | 프로젝트 취지 (최초 기억) | — | — |
+| `evt_7f0846bfc503419599493d07176a94d0` | 결정 — 스택: FastAPI + 순수 Python 엔진 (TS+Canvas 기각) | [03_architecture.md](03_architecture.md) | `229aaac` |
+| `evt_87b564e85ee14c4695bcec3435671e81` | 결정 — 사전 설계 전환점 교체 (실시간→턴제 폐기, 즉시판정→에너지 채택) | [04_turn_system_pivot.md](04_turn_system_pivot.md) | `229aaac` |
+| `evt_d61ded1d63a44403857b5881457f70ff` | 결정 — 저장 규약 확정 + 문서 세트 | [06_memory_protocol.md](06_memory_protocol.md) | `229aaac` |
+| `evt_1f08127e492f4077a9914836b843f164` | 구현 — Phase 0 첫 커밋. 위 세 결정에 해시를 연결 | 이 문서 | `229aaac` |
 
-> **커밋 해시는 아직 비어 있다.** Phase 0에서 `git init` 후 docs를 커밋하면
-> `mweft_remember_edit`으로 세 이벤트에 해시를 채운다. 비워둔 채로 넘어가지 않는다.
-> → [07_github_provenance.md](07_github_provenance.md) §1
+커밋 `229aaac`의 메시지에는 위 세 결정이 `ak:evt_` 트레일러로 들어가 있다 →
+**양방향 provenance 성립.** → [07_github_provenance.md](07_github_provenance.md)
