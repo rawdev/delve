@@ -35,6 +35,22 @@ Gemini)이 같은 메모리에 함께 쌓습니다.
 - **프론트**: 프레임워크 없는 단일 HTML. 처음엔 텍스트 그리드 (`@` 플레이어, `#` 벽)
 - **에셋 0개** — 로그라이크는 그래픽 없이 태어난 장르입니다
 
+## 직접 돌려보기
+
+> ⚠️ **Phase 0 — 코드가 아직 없습니다.** 아래는 Phase 1 완료 후 동작합니다.
+> 전체 실행 문서: **[docs/10_running.md](docs/10_running.md)**
+
+```bash
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+→ http://127.0.0.1:8000
+
+의존성은 FastAPI + uvicorn 둘뿐입니다. Node도, 번들러도, DB 서버도 필요 없습니다.
+이동은 방향키 또는 `hjkl`, **적이 있는 칸으로 이동하면 공격**입니다.
+
 ## 설계 문서
 
 | 문서 | 내용 |

@@ -66,6 +66,7 @@
 | [07_github_provenance.md](07_github_provenance.md) | 커밋 ↔ 이벤트 양방향 연결 | 커밋할 때마다 |
 | [08_participants_workflow.md](08_participants_workflow.md) | 사람 2 + AI 3의 역할과 세션 운영 | 협업 세팅할 때 |
 | [09_risks_checklist.md](09_risks_checklist.md) | 리스크, 공개 전환 체크리스트 | Phase 0과 Phase 5 |
+| [10_running.md](10_running.md) | **실행 방법** — 설치, 서버 구동, 조작, 시드, 테스트 | 게임을 돌려보거나 플레이할 때 |
 
 ## 저장 대상 (AiAkiv)
 
