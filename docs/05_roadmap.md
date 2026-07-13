@@ -10,7 +10,9 @@
 >
 > **작업을 마치면 그 자리에서 체크박스를 채운다.**
 >
-> **현재: Phase 0 진행 중** — 문서/저장소 완료, 콘솔 게이트 4건 남음.
+> **현재: Phase 1 완료.** 게임이 플레이 가능하다 (5층, 이동/전투, Goblin, FOV, permadeath).
+> 다음은 **Phase 2 — 적 3종 투입 → v1이 깨지는 것을 확인 → 에너지 스케줄러 전환.**
+> (Phase 0의 콘솔 게이트 4건은 여전히 남아 있다 — 아래 참조.)
 
 집중 개발 기준 약 2~3주. **달력 기간이 부담이면 세션 밀도로 압축한다** — 그래프에
 중요한 건 기간이 아니라 **이벤트 수와 결정 밀도**다 (목표: 이벤트 80~120개, 결정 15개+).
@@ -72,19 +74,33 @@
 > 곳곳에 생긴다. 그러면 시드 결정론이 조용히 깨지고, 버그 재현이 안 되고, BQ1·BQ2가
 > 죽는다. 불변식 3(`docs/03_architecture.md` §2)은 **첫 파일부터** 지켜야 한다.
 
-**코드 산출물**
-- [ ] `engine/rng.py` — 시드 RNG. **`random` 전역 호출 금지 규칙 확립**
-- [ ] `engine/state.py` — `GameState`, `Actor`, `Item` dataclass
-- [ ] `engine/dungeon.py` — 랜덤 방 배치 + L자 복도, 시드 결정론
-- [ ] `engine/fov.py` — 반경 8 시야, visible/explored 분리
-- [ ] `engine/combat.py` — `dmg = max(1, atk - def)`
-- [ ] `engine/ai.py` — Goblin 추격 AI (**1종만.** 여기서 3종을 넣으면 v1이 바로 깨진다)
-- [ ] `engine/turn.py` — **v1 즉시판정 (lockstep)** ★ *v2로 직행 금지 — R4*
-- [ ] `app/main.py` + `static/index.html` — 텍스트 그리드, 이동/공격 가능
-- [ ] `requirements.txt` — fastapi, uvicorn[standard] (**둘뿐이다**)
-- [ ] `tests/test_dungeon.py` — 같은 시드 → 같은 맵
-- [ ] **플레이 가능한 상태로 커밋** (이게 Phase 1의 합격선)
-- [ ] `docs/10_running.md`의 경고 블록 제거 — **명령이 실제로 동작해야 제거할 수 있다**
+**코드 산출물** — ✅ 완료
+- [x] `engine/rng.py` — 시드 RNG. **`random` 전역 호출 금지 규칙 확립** (`6d78fb8`)
+- [x] `engine/state.py` — `GameState`, `Actor`, `Map`. **Actor에 speed/energy 없음**(의도적)
+- [x] `engine/dungeon.py` — 랜덤 방 배치 + L자 복도, 시드 결정론
+- [x] `engine/fov.py` — 반경 8 그림자 캐스팅, visible/explored 분리 (`84d6eca`)
+- [x] `engine/combat.py` — `dmg = max(1, atk - def)`. 무작위 없음 → Rng를 받지 않는다
+- [x] `engine/ai.py` — Goblin idle/chase/flee (**1종만**). `decide()`는 (dx,dy)만 돌려준다
+- [x] `engine/actions.py` — 이동 = 공격. InvalidAction은 턴을 소비하지 않는다
+- [x] `engine/turn.py` — **v1 즉시판정 (lockstep)** ★
+- [x] `app/main.py` + `app/schemas.py` + `app/store.py` — HTTP 경계만. 게임 규칙 0줄
+- [x] `static/index.html` — 텍스트 그리드, 빌드 도구 없음
+- [x] `requirements.txt` — fastapi, uvicorn[standard] (**둘뿐이다**)
+- [x] `tests/` — 44 passed. 결정론 · 도달 가능성 · **v1 가드 2종**
+- [x] **플레이 가능** — 브라우저에서 5층 하강·전투·사망 확인 (Phase 1 합격선)
+- [x] `docs/10_running.md`의 경고 블록 제거 — 명령이 실제로 동작함을 확인 후
+
+**Phase 1이 남긴 것 (Phase 2 전환의 재료)**
+- v1 응답에 **`events[]` 배열이 없다** — v1은 "1입력 = 전원 1행동"이라 `log[]`로 충분.
+  v2에서 Rat이 연속 행동하면 순서가 필요해지고, 그때 API 계약이 바뀐다(전환 비용).
+- `tests/test_turn_v1.py::test_v1_every_enemy_acts_exactly_once` — **Phase 2 전환 시
+  이 테스트는 깨져야 한다.** 깨지는 것이 전환이 실제로 일어났다는 증거다.
+
+**저장한 이벤트**
+- [x] `evt_44979725` `결정` — 던전 생성 알고리즘 (BSP 기각)
+- [x] `evt_f9b9fda8` `구현` — 토대 (rng/state/dungeon)
+- [x] `evt_3efb024c` `결정` ★ — **턴 처리 v1: 즉시판정 채택** (DQ1의 첫 고리)
+- [x] `evt_6d1ab84d` `구현` — FOV/전투/AI/turn v1 + 실패한 테스트 2건 기록
 
 **저장할 이벤트**
 - `결정` — 던전 생성 알고리즘 (랜덤 방 배치 채택 / BSP 기각)

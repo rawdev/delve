@@ -37,9 +37,6 @@ Gemini)이 같은 메모리에 함께 쌓습니다.
 
 ## 직접 돌려보기
 
-> ⚠️ **Phase 0 — 코드가 아직 없습니다.** 아래는 Phase 1 완료 후 동작합니다.
-> 전체 실행 문서: **[docs/10_running.md](docs/10_running.md)**
-
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -50,6 +47,9 @@ uvicorn app.main:app --reload
 
 의존성은 FastAPI + uvicorn 둘뿐입니다. Node도, 번들러도, DB 서버도 필요 없습니다.
 이동은 방향키 또는 `hjkl`, **적이 있는 칸으로 이동하면 공격**입니다.
+
+같은 시드는 항상 같은 던전을 만듭니다 — 버그를 발견하면 시드를 함께 적어주세요.
+전체 실행 문서: **[docs/10_running.md](docs/10_running.md)**
 
 ## 설계 문서
 
@@ -68,7 +68,10 @@ uvicorn app.main:app --reload
 
 ## 상태
 
-**Phase 0 (셋업)** — 설계 문서 확정. 코드는 아직 없습니다.
+**Phase 1 완료** — 코어 루프가 돕니다. 던전 5층, 이동/전투, Goblin, FOV, 레벨업,
+permadeath. 턴 처리는 **v1 즉시판정**입니다 — Phase 2에서 적 3종(속도 150/100/60)을
+넣으면 이 구조가 깨지고, 그때 에너지 스케줄러로 전환합니다.
+왜 그렇게 하는지는 [docs/04_turn_system_pivot.md](docs/04_turn_system_pivot.md)에.
 
 진행 상태의 단일 출처는 **[docs/05_roadmap.md](docs/05_roadmap.md)의 체크박스**입니다
 (+ AiAkiv 메모리). 별도의 PLAN/TODO 파일은 두지 않습니다 — 상태를 이중 관리하면
