@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+# `pytest`를 그냥 실행해도 engine/ 을 import할 수 있게 저장소 루트를 경로에 넣는다.
+# 이게 없으면 `python -m pytest`는 되지만 `pytest`는 ModuleNotFoundError로 죽는다
+# (docs/10_running.md §7이 `pytest`라고 적어두었으므로 문서가 거짓이 된다).
+pythonpath = ["."]
+testpaths = ["tests"]
