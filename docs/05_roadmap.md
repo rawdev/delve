@@ -1,5 +1,17 @@
 # 05. 로드맵 — Phase 0~5
 
+> ## 📍 이 문서가 진행 상태의 단일 출처다
+>
+> **별도의 PLAN.md / TODO 파일을 만들지 않는다.** 상태를 이중 관리하면 어긋나고,
+> "메모리가 계획 파일을 대체한다"는 이 프로젝트의 주장 자체가 약해진다.
+>
+> 진행 상태 = **이 문서의 체크박스** + **AiAkiv 메모리**(`ak 지난 세션 뭐 했지?`).
+> README와 `00_overview.md`의 상태 서술은 여기를 가리킬 뿐 상태를 갖지 않는다.
+>
+> **작업을 마치면 그 자리에서 체크박스를 채운다.**
+>
+> **현재: Phase 0 진행 중** — 문서/저장소 완료, 콘솔 게이트 4건 남음.
+
 집중 개발 기준 약 2~3주. **달력 기간이 부담이면 세션 밀도로 압축한다** — 그래프에
 중요한 건 기간이 아니라 **이벤트 수와 결정 밀도**다 (목표: 이벤트 80~120개, 결정 15개+).
 
@@ -8,36 +20,71 @@
 
 ---
 
-## Phase 0 — 셋업 (D0)
+## Phase 0 — 셋업 (D0) — 🔄 진행 중
 
-**코드/인프라**
-- [ ] `git init`, GitHub 공개 저장소 생성
-- [ ] README 첫 줄에 AiAkiv 공개 프로젝트 링크 (아직 비공개여도 자리는 잡아둔다)
-- [ ] AiAkiv 공개 전용 팀/프로젝트 확인 — **AiAkiv-Roguelike / AiAkivRogueLike**
-      (본 계정 `k2g`와 완전 분리) → [00_overview.md](00_overview.md)
-- [ ] 프로젝트 페르소나 설정: *"결정에는 반드시 고려한 대안과 기각 이유를 함께 저장."*
-- [ ] 동료 계정/별칭 확보 → [08_participants_workflow.md](08_participants_workflow.md)
+**문서 / 저장소** — ✅ 완료
+- [x] 설계 문서 세트 `docs/00`~`docs/10` 작성 (커밋 `229aaac`, `ff178e7`)
+- [x] `CLAUDE.md` — 세션 진입 규칙 (저장 규약·R4 경고·엔티티 사전·불변식)
+- [x] `git init` + GitHub 공개 저장소 생성 — https://github.com/rawdev/delve
+- [x] `.gitignore`, `.mcp.json` (시크릿 없음 — 공개 시 방문자가 그대로 연결 가능)
+- [x] README에 3종 링크 자리 확보 (플레이 URL / 코드 / AiAkiv 공개 메모리)
+- [x] AiAkiv 저장 대상 확인 — **AiAkiv-Roguelike / AiAkivRogueLike** (본 계정 `k2g`와 분리)
+- [x] 엔티티 이름 정리 — `k2g-sample_game` → `Delve` 통일 (deprecated 처리)
 
-**저장할 이벤트 (첫 기억)**
-- `결정` — 저장 규약 확정 (`docs/06_memory_protocol.md`)
-- `결정` — 스택 선정: FastAPI + 순수 Python 엔진, TS+Canvas 기각 (`docs/03_architecture.md`)
-- `결정` — 사전 설계 전환점 교체: 실시간→턴제 폐기, 즉시판정→에너지로 대체
-  (`docs/04_turn_system_pivot.md`)
+**콘솔 게이트** — ⬜ 남음 (여기 통과해야 D1로 간다. 전부 사람이 콘솔에서 해야 함)
+- [ ] 🚨 **Public read MCP 활성화 가능 여부 확인** (BP-103 §G config) — R1.
+      **안 열리면 계획 자체를 조정한다.** 개발 끝나고 알면 3주를 날린다. **가장 먼저.**
+- [ ] 🚨 **ChatGPT 계정에서 `AiAkivRogueLike`로 테스트 저장 1건** — R3, IQ1의 전제
+- [ ] **Gemini 계정에서 테스트 저장 1건** (선택) — R3
+- [ ] 🚨 **동료 계정 확보 + 별칭 설정** — R2, IQ2의 전제. Phase 2 시작 전까지
+- [ ] 동료 계정에서 테스트 저장 → `@handle` 검색으로 찾아지는지 확인
+- [ ] AiAkiv 프로젝트 페르소나 설정:
+      *"결정에는 반드시 고려한 대안과 기각 이유를 함께 저장."*
+
+**저장한 이벤트** — ✅
+- [x] `evt_7f0846bf` `결정` — 스택: FastAPI + 순수 Python 엔진 (TS+Canvas 기각)
+- [x] `evt_87b564e8` `결정` — 사전 설계 전환점 교체 (실시간→턴제 폐기, 즉시판정→에너지)
+- [x] `evt_d61ded1d` `결정` — 저장 규약 확정 + 문서 세트
+- [x] `evt_1f08127e` `구현` — Phase 0 첫 커밋 (해시 연결). **규약 자체의 버그 발견**:
+      `mweft_remember_edit`으로는 커밋 해시를 못 채운다 → 별도 `구현` 이벤트로 연결하도록 정정
+- [x] `evt_132fec67` `결정` — 실행 문서 `docs/10_running.md`
 
 ---
 
 ## Phase 1 — 코어 루프 (D1~D3)
 
+### 구현 순서 (의존 관계 — 이 순서를 지킨다)
+
+```
+1. engine/rng.py        시드 RNG          ← 모든 것의 토대. 여기서 결정론이 결정된다
+2. engine/state.py      GameState, Actor   ← 데이터 구조 먼저
+3. engine/dungeon.py    던전 생성          ← rng에 의존
+4. engine/fov.py        시야               ← map에 의존
+5. engine/combat.py     전투 판정          ← 순수 함수. 의존 없음
+6. engine/ai.py         Goblin 추격 AI     ← fov + combat
+7. engine/turn.py       ★ v1 즉시판정      ← 위 전부를 엮는다
+8. app/main.py          FastAPI 경계       ← 게임 규칙 0줄
+9. static/index.html    텍스트 그리드
+10. tests/              결정론 테스트
+```
+
+> **1번(`rng.py`)을 먼저 하는 이유**: 나중에 붙이면 이미 `random`을 직접 호출한 코드가
+> 곳곳에 생긴다. 그러면 시드 결정론이 조용히 깨지고, 버그 재현이 안 되고, BQ1·BQ2가
+> 죽는다. 불변식 3(`docs/03_architecture.md` §2)은 **첫 파일부터** 지켜야 한다.
+
 **코드 산출물**
 - [ ] `engine/rng.py` — 시드 RNG. **`random` 전역 호출 금지 규칙 확립**
+- [ ] `engine/state.py` — `GameState`, `Actor`, `Item` dataclass
 - [ ] `engine/dungeon.py` — 랜덤 방 배치 + L자 복도, 시드 결정론
 - [ ] `engine/fov.py` — 반경 8 시야, visible/explored 분리
-- [ ] `engine/turn.py` — **v1 즉시판정 (lockstep)** ★
 - [ ] `engine/combat.py` — `dmg = max(1, atk - def)`
-- [ ] `engine/ai.py` — Goblin 추격 AI (1종만)
+- [ ] `engine/ai.py` — Goblin 추격 AI (**1종만.** 여기서 3종을 넣으면 v1이 바로 깨진다)
+- [ ] `engine/turn.py` — **v1 즉시판정 (lockstep)** ★ *v2로 직행 금지 — R4*
 - [ ] `app/main.py` + `static/index.html` — 텍스트 그리드, 이동/공격 가능
+- [ ] `requirements.txt` — fastapi, uvicorn[standard] (**둘뿐이다**)
 - [ ] `tests/test_dungeon.py` — 같은 시드 → 같은 맵
 - [ ] **플레이 가능한 상태로 커밋** (이게 Phase 1의 합격선)
+- [ ] `docs/10_running.md`의 경고 블록 제거 — **명령이 실제로 동작해야 제거할 수 있다**
 
 **저장할 이벤트**
 - `결정` — 던전 생성 알고리즘 (랜덤 방 배치 채택 / BSP 기각)
