@@ -1,0 +1,5 @@
+{ "mcpServers": { "AiAkiv": {
+  "type": "http",
+  "url": "https://mcp.aiakiv.com/mcp",
+  "headers": { "X-K2G-Project": "AiAkivRogueLike" }
+} } }

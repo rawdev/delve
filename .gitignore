@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# 게임 세이브 DB (Phase 4)
+*.db
+*.sqlite3
+
+# 시크릿 — docs/06_memory_protocol.md §5 공개 금지 목록
+.env
+.env.*
+
+# 에디터/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

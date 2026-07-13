@@ -1,0 +1,56 @@
+# Delve
+
+웹 턴제 로그라이크. 그리고 **이 게임의 개발 과정 전체가 공개된 AI 공유 메모리로
+남아 있습니다.**
+
+- ▶ **플레이**: _(Phase 5에서 배포 — 준비 중)_
+- 📦 **코드**: 이 저장소
+- 🧠 **왜 이렇게 만들었나 (공개 메모리)**: _(Phase 5에서 공개 전환 — 준비 중)_
+
+## 이게 뭔가요
+
+git 히스토리는 **무엇이** 바뀌었는지 보여줍니다.
+공개 메모리는 **왜** 그렇게 했는지 — 어떤 대안을 검토하고 왜 버렸는지 — 를 보여줍니다.
+
+이 프로젝트에서는 게임을 실제로 만들면서, 모든 설계 결정·버그 수정·밸런스 조정을
+AiAkiv에 저장하고 readonly로 공개합니다. 사람 2명과 AI 3종(Claude Code / ChatGPT /
+Gemini)이 같은 메모리에 함께 쌓습니다.
+
+**주인공은 게임이 아니라 개발 궤적입니다.** 게임이 재밌을 필요는 없고, 궤적이 진짜면
+됩니다.
+
+## 공개되면 직접 물어보세요
+
+- "전투 시스템 설계가 지금까지 어떻게 바뀌었어?"
+- "적 AI 로직은 어떻게 구현됐어?" (설계·구현·리뷰를 각각 다른 AI가 했습니다)
+- "가장 최근 버그랑 그 원인이 뭐야?"
+- "인벤토리랑 세이브 포맷이 왜 같은 시점에 같이 바뀌었어?"
+
+## 게임
+
+턴제 로그라이크. 절차 생성 던전 5층, permadeath, 적 3종 + 보스, 인벤토리.
+한 칸 이동 = HTTP 요청 1개 → 서버가 한 턴 진행 → JSON 상태 반환.
+
+- **백엔드**: FastAPI + 순수 Python 게임 엔진 (엔진은 프레임워크를 import하지 않습니다)
+- **프론트**: 프레임워크 없는 단일 HTML. 처음엔 텍스트 그리드 (`@` 플레이어, `#` 벽)
+- **에셋 0개** — 로그라이크는 그래픽 없이 태어난 장르입니다
+
+## 설계 문서
+
+| 문서 | 내용 |
+|---|---|
+| [docs/00_overview.md](docs/00_overview.md) | 취지·성공 기준·원칙 |
+| [docs/01_demo_goals.md](docs/01_demo_goals.md) | 목표 심문 쿼리와 쿼리 역산 |
+| [docs/02_game_design.md](docs/02_game_design.md) | 게임 스펙 |
+| [docs/03_architecture.md](docs/03_architecture.md) | 아키텍처 |
+| [docs/04_turn_system_pivot.md](docs/04_turn_system_pivot.md) | 유일한 사전 설계 전환점 |
+| [docs/05_roadmap.md](docs/05_roadmap.md) | Phase 0~5 |
+| [docs/06_memory_protocol.md](docs/06_memory_protocol.md) | 저장 규약 |
+| [docs/07_github_provenance.md](docs/07_github_provenance.md) | 커밋 ↔ 이벤트 양방향 |
+| [docs/08_participants_workflow.md](docs/08_participants_workflow.md) | 참여자와 세션 운영 |
+| [docs/09_risks_checklist.md](docs/09_risks_checklist.md) | 리스크와 체크리스트 |
+
+## 상태
+
+**Phase 0 (셋업)** — 설계 문서 확정. 코드는 아직 없습니다.
+다음: Phase 1 코어 루프 (이동·전투·던전 생성, 턴 처리 v1).
