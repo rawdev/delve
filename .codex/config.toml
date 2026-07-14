@@ -1,0 +1,5 @@
+[mcp_servers.AiAkiv]
+url = "https://mcp.aiakiv.com/mcp"
+
+[mcp_servers.AiAkiv.http_headers]
+X-K2G-Project = "AiAkivRogueLike"

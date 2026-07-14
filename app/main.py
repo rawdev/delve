@@ -96,23 +96,26 @@ def new_game(req: NewGameRequest) -> GameView:
 
 @app.get("/api/game/{game_id}", response_model=GameView)
 def get_game(game_id: str) -> GameView:
-    found = store.get(game_id)
-    if found is None:
-        raise HTTPException(404, "그런 게임이 없다 (서버가 재시작됐을 수 있다)")
-    return _view(found[0])
+    with store.session(game_id) as found:
+        if found is None:
+            raise HTTPException(404, "그런 게임이 없다 (서버가 재시작됐을 수 있다)")
+        state, _ = found
+        return _view(state)
 
 
 @app.post("/api/game/{game_id}/action", response_model=GameView)
 def do_action(game_id: str, req: ActionRequest) -> GameView:
-    found = store.get(game_id)
-    if found is None:
-        raise HTTPException(404, "그런 게임이 없다 (서버가 재시작됐을 수 있다)")
+    # store.session()이 게임별 Lock을 잡는다 — 같은 게임의 동시 요청이 직렬화된다.
+    # 잠금 없이 두면 state.turn과 Rng 소비가 겹쳐 시드 결정론이 깨진다 (app/store.py).
+    with store.session(game_id) as found:
+        if found is None:
+            raise HTTPException(404, "그런 게임이 없다 (서버가 재시작됐을 수 있다)")
 
-    state, rng = found
-    try:
-        turn.process_turn(state, rng, req.model_dump())
-    except actions.InvalidAction as e:
-        # 성립하지 않는 행동 — 턴은 소비되지 않았다. 상태를 그대로 돌려준다.
-        raise HTTPException(409, str(e)) from e
+        state, rng = found
+        try:
+            turn.process_turn(state, rng, req.model_dump())
+        except actions.InvalidAction as e:
+            # 성립하지 않는 행동 — 턴은 소비되지 않았다. 상태를 그대로 돌려준다.
+            raise HTTPException(409, str(e)) from e
 
-    return _view(state)
+        return _view(state)

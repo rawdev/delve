@@ -1,6 +1,6 @@
-# CLAUDE.md — 세션 진입 규칙 (Claude Code)
+# AGENTS.md — 세션 진입 규칙 (Codex / ChatGPT)
 
-> ⚠️ **이 파일은 [AGENTS.md](AGENTS.md)와 내용이 같아야 한다.** 도구가 각자 자기 파일만
+> ⚠️ **이 파일은 [CLAUDE.md](CLAUDE.md)와 내용이 같아야 한다.** 도구가 각자 자기 파일만
 > 읽기 때문에 둘 다 필요하지만, **한쪽만 고치면 다른 AI가 옛 규약으로 저장한다.**
 > 특히 아래 **표준 엔티티 사전**이 어긋나면 같은 대상을 다른 이름으로 부르게 되고,
 > 그러면 쿼리가 **에러 없이 조용히** 실패한다 (docs/09 R6).
@@ -101,7 +101,7 @@ Phase 1에서 그걸 구현하면 안 된다.**
 ak:evt_<이벤트 id>
 docs: docs/xx.md
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Codex Opus 4.8 (1M context) <noreply@anthropic.com>
 ```
 
 → `docs/07_github_provenance.md`

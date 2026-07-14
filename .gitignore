@@ -13,6 +13,13 @@ venv/
 .env
 .env.*
 
+# AI 도구의 *로컬* 설정 — 개인 권한 허용 목록이 들어간다.
+# 시크릿은 없지만 다른 프로젝트(k2g 본체)의 MCP 서버 id가 섞여 들어온다 →
+# §5 공개 금지 목록의 "k2g 본체 정보"에 걸린다. 공유용 설정은 .mcp.json /
+# .codex/config.toml 쪽이고 그건 추적한다 (시크릿 없음 — 방문자가 그대로 쓸 수 있다).
+.claude/settings.local.json
+.codex/auth.json
+
 # 에디터/OS
 .vscode/
 .idea/

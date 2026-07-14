@@ -141,17 +141,30 @@ FastAPI 자동 문서: **http://127.0.0.1:8000/docs**
 ## 7. 테스트
 
 ```bash
-pip install pytest
+pip install -r requirements-dev.txt
 pytest
 ```
 
-엔진이 순수 Python이라 **HTTP 없이 테스트한다.** 서버를 띄울 필요가 없다.
+**런타임 의존성은 여전히 둘(fastapi + uvicorn)뿐이다.** `requirements-dev.txt`는 테스트
+전용이고 배포 컨테이너에 들어가지 않는다 — "의존성 둘뿐"이라는 주장의 실체는 *배포되는
+것에 뭐가 들어가나*이지 저장소의 requirements 파일 개수가 아니다.
+
+엔진이 순수 Python이라 **엔진 테스트는 HTTP 없이 돈다.** `app/`의 경계만 `TestClient`로
+검증하고, 그것 때문에 `httpx`가 테스트 의존성에 들어간다.
 
 | 테스트 | 검증 | 도입 |
 |---|---|---|
-| `tests/test_dungeon.py` | 같은 시드 → 같은 맵 (결정론) | Phase 1 |
+| `tests/test_dungeon.py` | 같은 시드 → 같은 맵 (결정론), 도달 가능성 | Phase 1 |
+| `tests/test_turn_v1.py` | v1 즉시판정 가드 — **Phase 2에서 깨져야 정상** | Phase 1 |
+| `tests/test_api.py` | HTTP 계약 (404/409/422), 정보 은닉, **동시성 직렬화** | Phase 1 |
 | `tests/test_turn.py` | 속도 150/100/60의 행동 횟수 비율 | **Phase 2 (전환 후 필수)** |
 | `tests/test_serialize.py` | 저장 → 로드 → 상태 동일 (`rng_state` 포함) | Phase 4 |
+
+> **동시성 테스트는 결과가 아니라 겹침 자체를 관측한다.** 처음엔 "N번 요청 → turn == N"으로
+> 썼는데 **Lock을 지워도 통과했다** — GIL 아래에서 `turn += 1`의 경합 창이 너무 좁아
+> 우연히 안 터진 것이다. 경쟁 조건이 실재하는데 테스트가 못 잡는 상태였고, 그건 방어선이
+> 아니라 방어선이 있다는 착각이다. 지금은 "같은 게임을 두 요청이 동시에 처리 중인 순간이
+> 있었나"를 직접 센다 — Lock을 지우면 반드시 실패한다.
 
 ## 8. 배포 (Phase 5)
 
