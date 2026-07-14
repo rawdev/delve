@@ -162,8 +162,8 @@ Railway. 단일 컨테이너, 빌드 스텝 없음.
 web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
 
-배포 후 [07_github_provenance.md](07_github_provenance.md) §5의 README 3종 링크
-(플레이 URL / GitHub / AiAkiv 공개 프로젝트)를 채운다.
+배포 후 [07_github_provenance.md](07_github_provenance.md) §5의 README **4종 링크**
+(플레이 URL / GitHub / 정적 메모리 페이지 / AiAkiv sample 프로젝트)를 채운다.
 
 ## 9. AiAkiv 메모리 연결 (개발자용)
 
@@ -177,8 +177,13 @@ web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 } } }
 ```
 
-**시크릿이 없다.** 공개 전환(Phase 5) 후에는 방문자가 이 파일을 그대로 써서 자기 AI에
-연결하고 개발 히스토리에 직접 질문할 수 있다 — 저장소 자체가 데모의 일부다.
+**시크릿이 없다.** 공개(Phase 5) 후에는 방문자가 이 파일을 그대로 써서 자기 AI에 연결하고
+개발 히스토리에 직접 질문할 수 있다 — 저장소 자체가 데모의 일부다.
+
+> **단, AiAkiv 계정이 필요하다.** 비인증 방문자에게 그래프를 여는 기능은 없다(R1).
+> 가입하면 `Delve` sample 프로젝트를 **라이브 읽기전용**으로 받고, 그때 이 `.mcp.json`이
+> 그대로 동작한다. 가입 없이 궤적만 읽고 싶다면 **정적 메모리 페이지**를 보면 된다.
+> → [09_risks_checklist.md](09_risks_checklist.md) R1
 
 개발 세션 시작 시:
 
