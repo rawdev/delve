@@ -128,6 +128,23 @@ def test_equip_swaps_and_returns_previous_to_bag() -> None:
     assert [it.id for it in state.inventory] == ["w1"], "쓰던 무기가 가방으로 돌아와야 한다"
 
 
+def test_scroll_does_not_stack_on_an_actor() -> None:
+    """귀환 스크롤이 입구의 적 위로 이동하지 않는다 (evt_5e7f2360 중간2)."""
+    state, _ = _game()
+    p = state.player
+    p.x, p.y = p.x + 5, p.y + 5
+    sx, sy = actions._floor_start(state)
+    blocker = make_enemy("goblin", 0, sx, sy)  # 입구를 막고 선 적
+    state.actors = [p, blocker]
+    state.inventory = [Item(id="s1", kind="scroll")]
+
+    actions.use(state, "s1")
+
+    assert (p.x, p.y) != (sx, sy), "적이 선 입구 칸에 겹쳐 서면 안 된다"
+    assert state.actor_at(p.x, p.y) is p, "아무와도 좌표가 겹치지 않는다"
+    assert state.map.walkable(p.x, p.y)
+
+
 def test_enemies_ignore_player_equipment() -> None:
     """장착 보너스는 플레이어만 받는다 — 적의 공격/방어에는 반영되지 않는다."""
     state, _ = _game()

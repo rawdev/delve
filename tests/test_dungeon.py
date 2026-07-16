@@ -85,6 +85,13 @@ def test_items_spawn_walkable_and_not_on_actors(floor: int) -> None:
         assert (it.x, it.y) not in actor_pos, "아이템이 액터 위에 있다"
 
 
+def test_item_ids_are_unique_across_floors() -> None:
+    """아이템 ID는 층을 넘어 유일하다 — 인벤토리가 층 사이 유지되므로 (evt_5e7f2360 높음3)."""
+    _, _, items1 = generate(1, Rng(7))
+    _, _, items2 = generate(2, Rng(7))
+    assert {it.id for it in items1}.isdisjoint({it.id for it in items2})
+
+
 @pytest.mark.parametrize("floor", FLOORS)
 def test_dungeon_content_is_still_goblin_only(floor: int) -> None:
     """던전은 아직 Goblin만 스폰한다.

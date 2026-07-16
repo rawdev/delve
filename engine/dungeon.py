@@ -143,7 +143,9 @@ def generate(floor: int, rng: Rng) -> tuple[Map, list[Actor], list[ItemOnFloor]]
             if (ix, iy) not in occupied:
                 occupied.add((ix, iy))
                 floor_items.append(
-                    ItemOnFloor(id=f"item#{i}", kind=rng.choice(ITEM_POOL), x=ix, y=iy)
+                    # ID에 층 번호를 넣는다 — 인벤토리는 층을 넘어 유지되므로 층마다
+                    # item#0을 재사용하면 서로 다른 아이템이 같은 id를 갖는다 (evt_5e7f2360 높음3).
+                    ItemOnFloor(id=f"f{floor}-item#{i}", kind=rng.choice(ITEM_POOL), x=ix, y=iy)
                 )
                 break
 

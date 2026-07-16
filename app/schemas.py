@@ -92,13 +92,16 @@ class TurnEvent(BaseModel):
     응답에서는 `response_model_exclude_none`으로 안 쓰는 필드가 빠진다.
     """
 
-    t: str  # move | attack | wait | death | levelup | descend | floor | win
+    t: str  # move | attack | wait | death | levelup | descend | floor | win | pickup | use | equip
     actor: str | None = None
     target: str | None = None
     to: list[int] | None = None
     dmg: int | None = None
     level: int | None = None
     floor: int | None = None
+    item: str | None = None  # pickup / use / equip 대상 종류
+    heal: int | None = None  # 포션 회복량
+    slot: str | None = None  # 장착 슬롯 (weapon / armor)
 
 
 class ActionResponse(BaseModel):

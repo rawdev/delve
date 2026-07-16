@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from engine import combat, items
-from engine.state import STAIRS, Actor, GameState, Item
+from engine.state import MAP_H, MAP_W, STAIRS, Actor, GameState, Item
 
 DIRECTIONS: dict[str, tuple[int, int]] = {
     "north": (0, -1),
@@ -84,7 +84,8 @@ def use(state: GameState, item_id: str | None) -> list[dict]:
         return [{"t": "use", "actor": "player", "item": "potion", "heal": healed}]
 
     if it.kind == "scroll":
-        sx, sy = _floor_start(state)
+        # 입구가 적에게 점유돼 있으면 가장 가까운 빈 칸으로 — 좌표 중첩 방지 (evt_5e7f2360 중간2).
+        sx, sy = _free_tile_near(state, *_floor_start(state))
         state.player.x, state.player.y = sx, sy
         state.inventory.remove(it)
         state.log.append("귀환 스크롤 — 층 입구로 돌아왔다.")
@@ -119,3 +120,19 @@ def _find_in_inventory(state: GameState, item_id: str | None) -> Item:
 def _floor_start(state: GameState) -> tuple[int, int]:
     x, y, w, h = state.map.rooms[0]  # 플레이어 시작 방 = 첫 방
     return x + w // 2, y + h // 2
+
+
+def _free_tile_near(state: GameState, x0: int, y0: int) -> tuple[int, int]:
+    """(x0,y0)에서 가장 가까운 빈 바닥을 결정론적으로 고른다 (걸을 수 있고 아무도 없는 칸).
+
+    동거리는 (y, x) 순서로 깨서 재현 가능하게 한다. 시작칸이 비어 있으면 그대로 반환.
+    """
+    best_key: tuple[int, int, int] | None = None
+    best_xy = (x0, y0)
+    for y in range(MAP_H):
+        for x in range(MAP_W):
+            if state.map.walkable(x, y) and state.actor_at(x, y) is None:
+                key = (max(abs(x - x0), abs(y - y0)), y, x)
+                if best_key is None or key < best_key:
+                    best_key, best_xy = key, (x, y)
+    return best_xy

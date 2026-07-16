@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 
 from app import main, store
 from app.main import app
-from engine.state import MAP_H, MAP_W, ItemOnFloor
+from engine.state import MAP_H, MAP_W, Item, ItemOnFloor
 
 
 @pytest.fixture(autouse=True)
@@ -161,6 +161,26 @@ def test_pickup_with_nothing_here_is_409(client: TestClient) -> None:
 
     r = client.post(f"/api/game/{gid}/action", json={"type": "pickup"})
     assert r.status_code == 409
+
+
+def test_use_event_preserves_item_and_heal(client: TestClient) -> None:
+    """use 이벤트가 API에서 item/heal을 보존한다 (evt_5e7f2360 중간1)."""
+    game = _new_game(client)
+    gid = game["game_id"]
+
+    with store.session(gid) as found:
+        assert found is not None
+        state, _ = found
+        state.player.hp = state.player.max_hp - 5  # 회복 여지 5
+        state.inventory = [Item(id="p1", kind="potion")]
+
+    r = client.post(f"/api/game/{gid}/action", json={"type": "use", "item_id": "p1"})
+    assert r.status_code == 200
+
+    use_events = [e for e in r.json()["events"] if e["t"] == "use"]
+    assert use_events, "use 이벤트가 있어야 한다"
+    assert use_events[0]["item"] == "potion"
+    assert use_events[0]["heal"] == 5
 
 
 # --- 오류 계약 -------------------------------------------------------------
