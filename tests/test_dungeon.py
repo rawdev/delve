@@ -93,16 +93,14 @@ def test_item_ids_are_unique_across_floors() -> None:
 
 
 @pytest.mark.parametrize("floor", FLOORS)
-def test_dungeon_content_is_still_goblin_only(floor: int) -> None:
-    """던전은 아직 Goblin만 스폰한다.
+def test_dungeon_spawns_all_three_kinds(floor: int) -> None:
+    """던전은 Rat/Goblin/Golem을 실제로 배치한다 — 종류별 도주 정책을 관찰할 수 있도록
+    각 종류 최소 1마리를 보장한다 (evt_5e7f2360 높음1, 설계 evt_81fb3979).
 
-    턴 시스템은 v2(에너지 스케줄러)로 전환됐고 엔진은 Rat/Golem의 speed를 지원한다.
-    다만 실제 배치는 이후 콘텐츠/밸런스 작업(Phase 3)에서 다룬다 — 속도 비율 자체는
-    tests/test_turn.py가 직접 구성한 적으로 검증한다.
-    이 테스트가 깨지는 날(던전이 Rat/Golem을 스폰) 밸런스 사이클이 시작된 것이다.
+    조합·비율은 확정하지 않으므로(Phase 3 소재) 여기서 검증하지 않는다.
     """
     _, actors, _ = generate(floor, Rng(7))
-    assert {a.kind for a in actors[1:]} <= {"goblin"}
+    assert {a.kind for a in actors[1:]} == {"rat", "goblin", "golem"}
 
 
 @pytest.mark.parametrize("floor", FLOORS)

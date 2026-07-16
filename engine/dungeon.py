@@ -40,6 +40,11 @@ MAX_PLACEMENT_TRIES = 200
 # 바닥 아이템 종류 풀 (가중치 = 등장 빈도). 포션이 흔하고 장비는 드물다. docs/02 §5
 ITEM_POOL = ["potion", "potion", "potion", "sword", "shield", "scroll"]
 
+# 적 종류 (docs/02 §3). 종류별 도주 정책이 관찰되도록 각 종류를 최소 1마리씩 보장한다.
+# 층별 조합·비율·가중치·난이도 곡선은 확정하지 않고 Phase 3(DQ2)에 남긴다 — 여기서
+# 가중 풀을 만들지 않는다 (설계 evt_81fb3979).
+ENEMY_KINDS = ("rat", "goblin", "golem")
+
 
 def _overlaps(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> bool:
     """방 사이에 최소 1칸 벽이 남도록 1칸 여유를 두고 판정."""
@@ -121,7 +126,13 @@ def generate(floor: int, rng: Rng) -> tuple[Map, list[Actor], list[ItemOnFloor]]
     # 적 배치 — 첫 방(플레이어 시작 방)에는 넣지 않는다.
     occupied = {(px, py), (sx, sy)}
     spawn_rooms = rooms[1:] or rooms
-    for i in range(params["monsters"]):
+
+    # 각 종류를 최소 1마리씩 보장하고 나머지는 균등 랜덤으로 채운다. 비율은 미확정.
+    roster = list(ENEMY_KINDS)[: params["monsters"]]
+    while len(roster) < params["monsters"]:
+        roster.append(rng.choice(ENEMY_KINDS))
+
+    for i, kind in enumerate(roster):
         for _ in range(50):
             room = rng.choice(spawn_rooms)
             rx, ry, rw, rh = room
@@ -129,7 +140,7 @@ def generate(floor: int, rng: Rng) -> tuple[Map, list[Actor], list[ItemOnFloor]]
             ey = rng.randint(ry, ry + rh - 1)
             if (ex, ey) not in occupied:
                 occupied.add((ex, ey))
-                actors.append(make_enemy("goblin", i, ex, ey))
+                actors.append(make_enemy(kind, i, ex, ey))
                 break
 
     # 바닥 아이템 — 적과 같은 방식으로 겹치지 않게 놓는다 (첫 방 제외).
