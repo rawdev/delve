@@ -19,11 +19,13 @@ from app.schemas import (
     ActionRequest,
     ActionResponse,
     ActorView,
+    FloorItemView,
     GameView,
+    ItemView,
     NewGameRequest,
     TurnEvent,
 )
-from engine import actions, turn
+from engine import actions, items, turn
 from engine.combat import LEVEL_XP_FACTOR
 from engine.state import MAP_H, MAP_W, GameState
 
@@ -67,6 +69,22 @@ def _view(state: GameState) -> GameView:
         if state.map.visible[a.y][a.x]
     ]
 
+    def _item_view(it) -> ItemView:
+        return ItemView(
+            id=it.id, kind=it.kind, glyph=items.glyph_of(it.kind), name=items.name_of(it.kind)
+        )
+
+    inventory = [_item_view(it) for it in state.inventory]
+    equipped = {
+        slot: (None if it is None else _item_view(it))
+        for slot, it in state.equipped.items()
+    }
+    floor_items = [
+        FloorItemView(kind=f.kind, glyph=items.glyph_of(f.kind), x=f.x, y=f.y)
+        for f in state.floor_items
+        if state.map.visible[f.y][f.x]  # 안 보이는 바닥 아이템은 숨긴다 (FOV)
+    ]
+
     p = state.player
     return GameView(
         game_id=state.game_id,
@@ -86,6 +104,9 @@ def _view(state: GameState) -> GameView:
         xp_needed=LEVEL_XP_FACTOR * state.level,
         actors=visible_enemies,
         log=state.log[-8:],
+        inventory=inventory,
+        equipped=equipped,
+        floor_items=floor_items,
     )
 
 

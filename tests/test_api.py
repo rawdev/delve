@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 
 from app import main, store
 from app.main import app
-from engine.state import MAP_H, MAP_W
+from engine.state import MAP_H, MAP_W, ItemOnFloor
 
 
 @pytest.fixture(autouse=True)
@@ -123,6 +123,44 @@ def test_events_do_not_leak_invisible_enemies(client: TestClient) -> None:
         assert (
             actor is None or actor in visible_ids or e.get("target") == "player"
         ), f"안 보이는 적의 이벤트가 노출됐다: {e}"
+
+
+# --- 인벤토리 -------------------------------------------------------------
+
+
+def test_new_game_exposes_inventory_shape(client: TestClient) -> None:
+    body = _new_game(client)
+    assert body["inventory"] == []
+    assert set(body["equipped"]) == {"weapon", "armor"}
+    assert body["equipped"]["weapon"] is None
+    assert isinstance(body["floor_items"], list)
+
+
+def test_pickup_through_http_adds_to_inventory(client: TestClient) -> None:
+    game = _new_game(client)
+    gid = game["game_id"]
+
+    with store.session(gid) as found:
+        assert found is not None
+        state, _ = found
+        p = state.player
+        state.floor_items = [ItemOnFloor(id="i1", kind="potion", x=p.x, y=p.y)]
+
+    r = client.post(f"/api/game/{gid}/action", json={"type": "pickup"})
+    assert r.status_code == 200
+    assert [it["kind"] for it in r.json()["view"]["inventory"]] == ["potion"]
+
+
+def test_pickup_with_nothing_here_is_409(client: TestClient) -> None:
+    game = _new_game(client)
+    gid = game["game_id"]
+
+    with store.session(gid) as found:
+        assert found is not None
+        found[0].floor_items = []  # 시작칸엔 아이템이 없다 — 확실히 비운다
+
+    r = client.post(f"/api/game/{gid}/action", json={"type": "pickup"})
+    assert r.status_code == 409
 
 
 # --- 오류 계약 -------------------------------------------------------------

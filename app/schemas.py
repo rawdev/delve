@@ -32,8 +32,9 @@ class NewGameRequest(BaseModel):
 
 
 class ActionRequest(BaseModel):
-    type: Literal["move", "wait", "descend"]
+    type: Literal["move", "wait", "descend", "pickup", "use", "equip"]
     dir: str | None = None
+    item_id: str | None = None  # use / equip 대상
 
 
 class ActorView(BaseModel):
@@ -44,6 +45,20 @@ class ActorView(BaseModel):
     y: int
     hp: int
     max_hp: int
+
+
+class ItemView(BaseModel):
+    id: str
+    kind: str
+    glyph: str
+    name: str
+
+
+class FloorItemView(BaseModel):
+    kind: str
+    glyph: str
+    x: int
+    y: int
 
 
 class GameView(BaseModel):
@@ -64,6 +79,10 @@ class GameView(BaseModel):
     xp_needed: int
     actors: list[ActorView]  # 지금 보이는 적만
     log: list[str]  # 최근 로그 (사람이 읽는 문장)
+
+    inventory: list[ItemView]
+    equipped: dict[str, ItemView | None]  # "weapon" / "armor"
+    floor_items: list[FloorItemView]  # 지금 보이는 것만 (FOV)
 
 
 class TurnEvent(BaseModel):

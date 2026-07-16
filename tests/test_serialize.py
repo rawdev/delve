@@ -66,3 +66,28 @@ def test_format_carries_a_version() -> None:
 def test_rejects_unknown_version() -> None:
     with pytest.raises(ValueError):
         serialize.from_dict({"version": 999})
+
+
+def test_inventory_and_equipment_roundtrip_at_v2() -> None:
+    """세이브 포맷 v2 — 인벤토리/장착/바닥 아이템이 살아 돌아온다 (BQ3의 실물)."""
+    from engine import actions
+    from engine.state import Item, ItemOnFloor
+
+    state, rng = turn.new_game("s", 42)
+    p = state.player
+    state.floor_items = [
+        ItemOnFloor(id="i1", kind="sword", x=p.x, y=p.y),
+        ItemOnFloor(id="i2", kind="potion", x=p.x + 1, y=p.y),
+    ]
+    state.inventory = []
+    actions.pickup(state)            # 발밑의 검을 줍고
+    actions.equip(state, "i1")       # 장착
+    state.inventory.append(Item(id="p9", kind="potion"))  # 가방에 포션 하나
+
+    assert serialize.to_dict(state, rng)["version"] == 2
+
+    state2, _ = serialize.from_json(serialize.to_json(state, rng))
+    assert state2.equipped["weapon"].kind == "sword"
+    assert [it.kind for it in state2.inventory] == ["potion"]
+    assert [(f.kind, f.x, f.y) for f in state2.floor_items] == [("potion", p.x + 1, p.y)]
+    assert state2.equipped["armor"] is None

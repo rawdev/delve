@@ -67,6 +67,24 @@ class Map:
 
 
 @dataclass
+class Item:
+    """가방/장착 슬롯에 들어가는 아이템. 효과·글리프는 engine/items.py의 스펙에서 본다."""
+
+    id: str
+    kind: str  # potion | sword | shield | scroll
+
+
+@dataclass
+class ItemOnFloor:
+    """바닥에 놓인 아이템. 플레이어가 그 칸에서 pickup하면 인벤토리로 들어간다."""
+
+    id: str
+    kind: str
+    x: int
+    y: int
+
+
+@dataclass
 class GameState:
     game_id: str
     seed: int
@@ -80,6 +98,11 @@ class GameState:
     # 플레이어 진행 (레벨업)
     level: int = 1
     player_xp: int = 0
+
+    # 인벤토리 (Phase 2-b). 이 필드들이 생기면서 세이브 포맷이 v1 → v2로 바뀐다 (BQ3).
+    inventory: list[Item] = field(default_factory=list)
+    equipped: dict = field(default_factory=lambda: {"weapon": None, "armor": None})
+    floor_items: list[ItemOnFloor] = field(default_factory=list)
 
     @property
     def player(self) -> Actor:

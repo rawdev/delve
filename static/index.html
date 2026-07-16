@@ -18,6 +18,7 @@
   .stair { color: #e8c46a; font-weight: bold; }
   .you   { color: #7ee081; font-weight: bold; }
   .enemy { color: #e06c75; font-weight: bold; }
+  .item  { color: #d7a3ff; font-weight: bold; }
   #hud { display: flex; gap: 18px; font-size: 14px; flex-wrap: wrap; justify-content: center; }
   #hud b { color: #e8e8ea; }
   #log { height: 8.4em; overflow: hidden; font-size: 13px; color: #8b93a1;
@@ -25,6 +26,9 @@
   #log div:last-child { color: #c8ccd4; }
   #events { font-size: 13px; color: #8b93a1; min-height: 1.2em; letter-spacing: .5px;
             width: min(100%, 64ch); text-align: center; }
+  #inv { display: none; font-size: 13px; color: #b9c0cc; width: min(100%, 64ch);
+         border: 1px solid #2f3540; padding: 6px 10px; box-sizing: border-box; }
+  #inv div:first-child { color: #e8c46a; margin-bottom: 4px; }
   #banner { font-size: 18px; font-weight: bold; min-height: 1.2em; }
   .dead { color: #e06c75; } .won { color: #7ee081; }
   footer { font-size: 12px; color: #565e6b; text-align: center; }
@@ -49,10 +53,12 @@
 <div id="banner"></div>
 <div id="events"></div>
 <div id="log"></div>
+<div id="inv"></div>
 
 <footer>
   이동 <b>방향키</b> / <b>hjkl</b>(+<b>yubn</b> 대각) &nbsp;·&nbsp; 대기 <b>.</b>
-  &nbsp;·&nbsp; 계단 <b>&gt;</b> &nbsp;·&nbsp; 새 게임 <b>r</b><br>
+  &nbsp;·&nbsp; 계단 <b>&gt;</b> &nbsp;·&nbsp; 줍기 <b>g</b> &nbsp;·&nbsp; 가방 <b>i</b>
+  &nbsp;·&nbsp; 새 게임 <b>r</b><br>
   적이 있는 칸으로 이동하면 공격합니다. 죽으면 처음부터 (permadeath).<br>
   <span style="color:#454c58">이 게임의 개발 과정은 전부 공개 메모리로 남습니다.</span>
 </footer>
@@ -66,6 +72,7 @@ const DIRS = {
 
 let game = null;
 let busy = false;
+let invOpen = false;
 
 async function post(url, body) {
   const res = await fetch(url, {
@@ -105,25 +112,29 @@ function render() {
   turn.textContent = g.turn;
   seed.textContent = g.seed;
 
-  // 액터를 타일 위에 얹는다 (서버는 보이는 적만 보낸다)
+  // 바닥 아이템 → 액터 → 플레이어 순으로 얹는다 (겹치면 나중 것이 이긴다).
+  // 서버는 보이는 적·아이템만 보낸다.
   const grid = g.tiles.map(row => row.split(""));
+  for (const it of g.floor_items) grid[it.y][it.x] = it.glyph;
   for (const a of g.actors) grid[a.y][a.x] = a.glyph;
   grid[g.player.y][g.player.x] = "@";
 
   const enemyGlyphs = new Set(g.actors.map(a => a.glyph));
+  const itemGlyphs = new Set(g.floor_items.map(it => it.glyph));
 
   let html = "";
   for (let y = 0; y < g.height; y++) {
     for (let x = 0; x < g.width; x++) {
       const ch = grid[y][x];
       const visible = g.lit[y][x] === "1";
-      html += `<span class="${cls(ch, visible, enemyGlyphs)}">${esc(ch)}</span>`;
+      html += `<span class="${cls(ch, visible, enemyGlyphs, itemGlyphs)}">${esc(ch)}</span>`;
     }
     html += "\n";
   }
   map.innerHTML = html;
 
   log.innerHTML = g.log.map(line => `<div>${esc(line)}</div>`).join("");
+  renderInv();
 
   banner.className = g.status === "dead" ? "dead" : g.status === "won" ? "won" : "";
   banner.textContent =
@@ -147,10 +158,30 @@ function renderEvents(evs) {
   events.textContent = parts.join("    ");
 }
 
-function cls(ch, visible, enemyGlyphs) {
+function renderInv() {
+  const g = game;
+  const w = g.equipped.weapon ? g.equipped.weapon.name : "없음";
+  const a = g.equipped.armor ? g.equipped.armor.name : "없음";
+  let html = `<div>장착 — 무기 ${esc(w)} / 방어구 ${esc(a)}</div>`;
+  html += g.inventory.length
+    ? g.inventory.map((it, i) => `<div>${i + 1}. ${esc(it.glyph)} ${esc(it.name)}</div>`).join("")
+    : `<div style="color:#565e6b">가방이 비었다</div>`;
+  inv.innerHTML = html;
+}
+
+function applyItem(idx) {
+  const it = game && game.inventory[idx];
+  if (!it) return;
+  // 소비 아이템은 use, 장비는 equip — 클라이언트가 kind로 판단한다.
+  const type = (it.kind === "potion" || it.kind === "scroll") ? "use" : "equip";
+  act({ type, item_id: it.id });
+}
+
+function cls(ch, visible, enemyGlyphs, itemGlyphs) {
   if (ch === "@") return "you";
-  if (!visible) return "dark";                  // 기억 — 적은 여기 안 그려진다
+  if (!visible) return "dark";                  // 기억 — 적·아이템은 여기 안 그려진다
   if (enemyGlyphs.has(ch)) return "enemy";
+  if (itemGlyphs.has(ch)) return "item";
   if (ch === "#") return "wall";
   if (ch === ">") return "stair";
   if (ch === ".") return "floor";
@@ -161,6 +192,9 @@ const esc = s => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&g
 
 addEventListener("keydown", e => {
   if (e.key === "r") { newGame(); return; }
+  if (e.key === "i") { invOpen = !invOpen; inv.style.display = invOpen ? "block" : "none"; return; }
+  if (e.key === "g") { act({ type: "pickup" }); return; }
+  if (invOpen && e.key >= "1" && e.key <= "9") { applyItem(Number(e.key) - 1); return; }
   if (e.key in DIRS) { e.preventDefault(); act({ type: "move", dir: DIRS[e.key] }); return; }
   if (e.key === ".") { act({ type: "wait" }); return; }
   if (e.key === ">") { act({ type: "descend" }); return; }

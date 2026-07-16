@@ -17,6 +17,7 @@ from engine.state import (
     STAIRS,
     WALL,
     Actor,
+    ItemOnFloor,
     Map,
     make_enemy,
     make_player,
@@ -25,16 +26,19 @@ from engine.state import (
 # 층별 파라미터 v1 — 이 수치는 틀릴 것이다.
 # Phase 3에서 동료 플레이테스트로 흔들고 v2를 낸다 (docs/02_game_design.md §2).
 FLOOR_PARAMS: dict[int, dict] = {
-    1: {"rooms": (6, 8), "monsters": 4},
-    2: {"rooms": (6, 9), "monsters": 6},
-    3: {"rooms": (7, 9), "monsters": 8},
-    4: {"rooms": (7, 10), "monsters": 10},
-    5: {"rooms": (5, 6), "monsters": 6},
+    1: {"rooms": (6, 8), "monsters": 4, "items": 3},
+    2: {"rooms": (6, 9), "monsters": 6, "items": 3},
+    3: {"rooms": (7, 9), "monsters": 8, "items": 2},
+    4: {"rooms": (7, 10), "monsters": 10, "items": 2},
+    5: {"rooms": (5, 6), "monsters": 6, "items": 2},
 }
 
 ROOM_MIN = 5
 ROOM_MAX = 12
 MAX_PLACEMENT_TRIES = 200
+
+# 바닥 아이템 종류 풀 (가중치 = 등장 빈도). 포션이 흔하고 장비는 드물다. docs/02 §5
+ITEM_POOL = ["potion", "potion", "potion", "sword", "shield", "scroll"]
 
 
 def _overlaps(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> bool:
@@ -84,7 +88,7 @@ def _carve_corridor(
         _carve_h(tiles, x1, x2, y2)
 
 
-def generate(floor: int, rng: Rng) -> tuple[Map, list[Actor]]:
+def generate(floor: int, rng: Rng) -> tuple[Map, list[Actor], list[ItemOnFloor]]:
     """한 층을 생성한다. actors[0]은 플레이어."""
     params = FLOOR_PARAMS[floor]
 
@@ -128,10 +132,25 @@ def generate(floor: int, rng: Rng) -> tuple[Map, list[Actor]]:
                 actors.append(make_enemy("goblin", i, ex, ey))
                 break
 
+    # 바닥 아이템 — 적과 같은 방식으로 겹치지 않게 놓는다 (첫 방 제외).
+    floor_items: list[ItemOnFloor] = []
+    for i in range(params.get("items", 0)):
+        for _ in range(50):
+            room = rng.choice(spawn_rooms)
+            rx, ry, rw, rh = room
+            ix = rng.randint(rx, rx + rw - 1)
+            iy = rng.randint(ry, ry + rh - 1)
+            if (ix, iy) not in occupied:
+                occupied.add((ix, iy))
+                floor_items.append(
+                    ItemOnFloor(id=f"item#{i}", kind=rng.choice(ITEM_POOL), x=ix, y=iy)
+                )
+                break
+
     game_map = Map(
         tiles=tiles,
         explored=[[False] * MAP_W for _ in range(MAP_H)],
         visible=[[False] * MAP_W for _ in range(MAP_H)],
         rooms=rooms,
     )
-    return game_map, actors
+    return game_map, actors, floor_items

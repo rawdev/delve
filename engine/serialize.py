@@ -8,9 +8,9 @@
   시드는 시작점일 뿐이고 RNG는 이미 N번 소비된 상태이기 때문이다 (docs/03 §3의 함정).
   이걸 빠뜨리면 세이브/로드가 결정론을 깨고, 그게 BQ2의 후보가 된다. tests/test_serialize.py가
   이 함정을 조기에 잡는다.
-- **`version` 필드**를 둔다. 인벤토리가 들어오면 포맷이 바뀐다 — 그때 버전을 올린다.
-  이 파일이 v1이고, 인벤토리 추가가 v2다. 두 변경이 엔티티 "세이브 포맷"을 공유하는
-  것이 BQ3의 전부다 (docs/04 §4, docs/02 §5).
+- **`version` 필드**를 둔다. **현재 v2** — v1(포맷 확립)에 인벤토리
+  (inventory/equipped/floor_items)가 더해지며 올라갔다. 이 v1→v2 변경과 인벤토리
+  구현이 엔티티 "세이브 포맷"을 공유하는 것이 BQ3의 전부다 (docs/04 §4, docs/02 §5).
 
 ## 왜 지금(2-b) 만드나
 
@@ -24,9 +24,9 @@ from __future__ import annotations
 import json
 
 from engine.rng import Rng
-from engine.state import Actor, GameState, Map
+from engine.state import Actor, GameState, Item, ItemOnFloor, Map
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2  # v1 → v2: 인벤토리(inventory/equipped/floor_items) 추가 (BQ3)
 
 _ACTOR_FIELDS = (
     "id", "kind", "glyph", "x", "y", "hp", "max_hp", "atk", "def_", "xp", "speed", "energy",
@@ -52,6 +52,12 @@ def to_dict(state: GameState, rng: Rng) -> dict:
             "rooms": [list(r) for r in state.map.rooms],
         },
         "actors": [_actor_to_dict(a) for a in state.actors],
+        "inventory": [_item_to_dict(it) for it in state.inventory],
+        "equipped": {
+            slot: (None if it is None else _item_to_dict(it))
+            for slot, it in state.equipped.items()
+        },
+        "floor_items": [_floor_item_to_dict(f) for f in state.floor_items],
         "log": list(state.log),
     }
 
@@ -79,6 +85,12 @@ def from_dict(data: dict) -> tuple[GameState, Rng]:
         status=data["status"],
         level=data["level"],
         player_xp=data["player_xp"],
+        inventory=[_item_from_dict(d) for d in data.get("inventory", [])],
+        equipped={
+            slot: (None if d is None else _item_from_dict(d))
+            for slot, d in data.get("equipped", {"weapon": None, "armor": None}).items()
+        },
+        floor_items=[_floor_item_from_dict(d) for d in data.get("floor_items", [])],
     )
 
     rng = Rng(data["seed"])
@@ -100,6 +112,22 @@ def _actor_to_dict(a: Actor) -> dict:
 
 def _actor_from_dict(d: dict) -> Actor:
     return Actor(**{f: d[f] for f in _ACTOR_FIELDS})
+
+
+def _item_to_dict(it: Item) -> dict:
+    return {"id": it.id, "kind": it.kind}
+
+
+def _item_from_dict(d: dict) -> Item:
+    return Item(id=d["id"], kind=d["kind"])
+
+
+def _floor_item_to_dict(f: ItemOnFloor) -> dict:
+    return {"id": f.id, "kind": f.kind, "x": f.x, "y": f.y}
+
+
+def _floor_item_from_dict(d: dict) -> ItemOnFloor:
+    return ItemOnFloor(id=d["id"], kind=d["kind"], x=d["x"], y=d["y"])
 
 
 def _rng_to_json(state: tuple) -> list:

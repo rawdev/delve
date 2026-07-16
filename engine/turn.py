@@ -42,7 +42,7 @@ from engine.state import ENERGY_THRESHOLD, MAX_FLOOR, GameState
 
 def new_game(game_id: str, seed: int | None = None) -> tuple[GameState, Rng]:
     rng = Rng(seed)
-    game_map, actors = dungeon.generate(1, rng)
+    game_map, actors, floor_items = dungeon.generate(1, rng)
 
     state = GameState(
         game_id=game_id,
@@ -52,6 +52,7 @@ def new_game(game_id: str, seed: int | None = None) -> tuple[GameState, Rng]:
         map=game_map,
         actors=actors,
     )
+    state.floor_items = floor_items
     state.log.append("당신은 던전에 발을 들였다. (1층)")
     fov.compute(state.map, state.player.x, state.player.y)
     return state, rng
@@ -101,6 +102,15 @@ def _apply_player(state: GameState, rng: Rng, action: dict) -> list[dict]:
     if kind == "descend":
         events = actions.descend(state)
         return events + _next_floor(state, rng)
+
+    if kind == "pickup":
+        return actions.pickup(state)
+
+    if kind == "use":
+        return actions.use(state, action.get("item_id"))
+
+    if kind == "equip":
+        return actions.equip(state, action.get("item_id"))
 
     raise actions.InvalidAction(f"모르는 행동: {kind}")
 
@@ -152,12 +162,13 @@ def _next_floor(state: GameState, rng: Rng) -> list[dict]:
     state.floor += 1
     player = state.player
 
-    game_map, actors = dungeon.generate(state.floor, rng)
+    game_map, actors, floor_items = dungeon.generate(state.floor, rng)
     new_player_pos = actors[0]
     player.x, player.y = new_player_pos.x, new_player_pos.y
 
     state.map = game_map
     state.actors = [player] + actors[1:]  # 플레이어는 HP/레벨을 유지한 채 데려간다
+    state.floor_items = floor_items  # 새 층의 바닥 아이템 (이전 층 것은 버린다)
 
     # 새 층은 에너지 경제를 리셋한다: 플레이어는 바로 행동 가능, 새 적은 0에서 시작.
     # (계단을 내려간 그 입력이 이번 층 첫 행동을 소비하지 않도록.)

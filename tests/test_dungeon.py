@@ -18,26 +18,29 @@ FLOORS = list(FLOOR_PARAMS)
 @pytest.mark.parametrize("floor", FLOORS)
 def test_same_seed_same_dungeon(floor: int) -> None:
     """같은 시드는 항상 같은 맵과 같은 액터 배치를 만든다."""
-    map_a, actors_a = generate(floor, Rng(42))
-    map_b, actors_b = generate(floor, Rng(42))
+    map_a, actors_a, items_a = generate(floor, Rng(42))
+    map_b, actors_b, items_b = generate(floor, Rng(42))
 
     assert map_a.tiles == map_b.tiles
     assert map_a.rooms == map_b.rooms
     assert [(a.id, a.kind, a.x, a.y) for a in actors_a] == [
         (b.id, b.kind, b.x, b.y) for b in actors_b
     ]
+    assert [(i.id, i.kind, i.x, i.y) for i in items_a] == [
+        (j.id, j.kind, j.x, j.y) for j in items_b
+    ]  # 아이템 배치도 시드 결정론적이다
 
 
 def test_different_seed_different_dungeon() -> None:
     """시드가 다르면 맵도 다르다 (시드가 실제로 쓰이고 있다는 증거)."""
-    map_a, _ = generate(1, Rng(42))
-    map_b, _ = generate(1, Rng(43))
+    map_a, _, _ = generate(1, Rng(42))
+    map_b, _, _ = generate(1, Rng(43))
     assert map_a.tiles != map_b.tiles
 
 
 @pytest.mark.parametrize("floor", FLOORS)
 def test_player_and_stairs_placed(floor: int) -> None:
-    game_map, actors = generate(floor, Rng(7))
+    game_map, actors, _ = generate(floor, Rng(7))
 
     player = actors[0]
     assert player.is_player
@@ -55,7 +58,7 @@ def test_player_and_stairs_placed(floor: int) -> None:
 
 @pytest.mark.parametrize("floor", FLOORS)
 def test_enemies_spawn_walkable_and_not_stacked(floor: int) -> None:
-    game_map, actors = generate(floor, Rng(7))
+    game_map, actors, _ = generate(floor, Rng(7))
     enemies = actors[1:]
 
     assert len(enemies) == FLOOR_PARAMS[floor]["monsters"]
@@ -68,6 +71,21 @@ def test_enemies_spawn_walkable_and_not_stacked(floor: int) -> None:
 
 
 @pytest.mark.parametrize("floor", FLOORS)
+def test_items_spawn_walkable_and_not_on_actors(floor: int) -> None:
+    game_map, actors, floor_items = generate(floor, Rng(7))
+
+    assert len(floor_items) == FLOOR_PARAMS[floor]["items"]
+
+    actor_pos = {(a.x, a.y) for a in actors}
+    item_pos = {(it.x, it.y) for it in floor_items}
+    assert len(item_pos) == len(floor_items), "아이템이 같은 칸에 겹쳐 있다"
+
+    for it in floor_items:
+        assert game_map.walkable(it.x, it.y), "아이템이 벽 안에 있다"
+        assert (it.x, it.y) not in actor_pos, "아이템이 액터 위에 있다"
+
+
+@pytest.mark.parametrize("floor", FLOORS)
 def test_dungeon_content_is_still_goblin_only(floor: int) -> None:
     """던전은 아직 Goblin만 스폰한다.
 
@@ -76,14 +94,14 @@ def test_dungeon_content_is_still_goblin_only(floor: int) -> None:
     tests/test_turn.py가 직접 구성한 적으로 검증한다.
     이 테스트가 깨지는 날(던전이 Rat/Golem을 스폰) 밸런스 사이클이 시작된 것이다.
     """
-    _, actors = generate(floor, Rng(7))
+    _, actors, _ = generate(floor, Rng(7))
     assert {a.kind for a in actors[1:]} <= {"goblin"}
 
 
 @pytest.mark.parametrize("floor", FLOORS)
 def test_map_is_enclosed(floor: int) -> None:
     """맵 가장자리는 벽이어야 한다 (밖으로 걸어나갈 수 없다)."""
-    game_map, _ = generate(floor, Rng(7))
+    game_map, _, _ = generate(floor, Rng(7))
     for x in range(MAP_W):
         assert game_map.tiles[0][x] == WALL
         assert game_map.tiles[MAP_H - 1][x] == WALL
@@ -98,7 +116,7 @@ def test_all_floor_tiles_reachable(floor: int) -> None:
 
     복도 연결이 끊기면 계단에 못 가고 게임이 진행 불가가 된다.
     """
-    game_map, actors = generate(floor, Rng(7))
+    game_map, actors, _ = generate(floor, Rng(7))
     player = actors[0]
 
     walkable = {

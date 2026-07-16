@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+from engine import items
 from engine.state import Actor, GameState
 
 # XP 곡선: 레벨업에 필요한 누적 XP = LEVEL_XP_FACTOR * level
@@ -19,8 +20,11 @@ LEVEL_XP_FACTOR = 10
 
 
 def attack(state: GameState, attacker: Actor, target: Actor) -> list[dict]:
-    """공격 1회. 발생한 이벤트 목록을 돌려준다."""
-    dmg = max(1, attacker.atk - target.def_)
+    """공격 1회. 발생한 이벤트 목록을 돌려준다.
+
+    데미지는 장착을 반영한 유효 수치로 계산한다 — 플레이어의 검/방패가 여기서 작동한다.
+    """
+    dmg = max(1, items.effective_atk(state, attacker) - items.effective_def(state, target))
     target.hp -= dmg
 
     events: list[dict] = [
