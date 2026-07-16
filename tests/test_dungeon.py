@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 import pytest
 
 from engine.dungeon import FLOOR_PARAMS, generate
@@ -61,7 +63,7 @@ def test_enemies_spawn_walkable_and_not_stacked(floor: int) -> None:
     game_map, actors, _ = generate(floor, Rng(7))
     enemies = actors[1:]
 
-    assert len(enemies) == FLOOR_PARAMS[floor]["monsters"]
+    assert len(enemies) == sum(FLOOR_PARAMS[floor]["enemies"].values())
 
     positions = [(a.x, a.y) for a in actors]
     assert len(positions) == len(set(positions)), "액터가 같은 칸에 겹쳐 있다"
@@ -93,14 +95,15 @@ def test_item_ids_are_unique_across_floors() -> None:
 
 
 @pytest.mark.parametrize("floor", FLOORS)
-def test_dungeon_spawns_all_three_kinds(floor: int) -> None:
-    """던전은 Rat/Goblin/Golem을 실제로 배치한다 — 종류별 도주 정책을 관찰할 수 있도록
-    각 종류 최소 1마리를 보장한다 (evt_5e7f2360 높음1, 설계 evt_81fb3979).
+def test_enemy_composition_matches_floor_params(floor: int) -> None:
+    """던전 생성이 밸런스 v1의 층별 적 조합(FLOOR_PARAMS['enemies'])을 그대로 배치한다.
 
-    조합·비율은 확정하지 않으므로(Phase 3 소재) 여기서 검증하지 않는다.
+    수치 자체를 테스트에 박지 않는다 — FLOOR_PARAMS를 읽어 대조하므로, 밸런스가 v2로
+    바뀌어도 이 계약(생성기가 선언된 조합을 지킨다)은 그대로 통과한다.
     """
     _, actors, _ = generate(floor, Rng(7))
-    assert {a.kind for a in actors[1:]} == {"rat", "goblin", "golem"}
+    counts = Counter(a.kind for a in actors[1:])
+    assert dict(counts) == FLOOR_PARAMS[floor]["enemies"]
 
 
 @pytest.mark.parametrize("floor", FLOORS)

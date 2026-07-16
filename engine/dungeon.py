@@ -25,12 +25,15 @@ from engine.state import (
 
 # 층별 파라미터 v1 — 이 수치는 틀릴 것이다.
 # Phase 3에서 동료 플레이테스트로 흔들고 v2를 낸다 (docs/02_game_design.md §2).
+# 밸런스 v1 (Phase 3 / DQ2). 층별 적 조합을 명시한다 — 이제 분포는 '결정'이다.
+# 초반은 Rat(빠름·약함) 압박, 후반은 Golem(느림·강함) 비중 상승. **이 수치는 틀릴 수
+# 있다**(docs/02 §2) — 동료 플레이테스트로 흔들어 v2를 낸다. 밸런스는 여기 한곳에서만 산다.
 FLOOR_PARAMS: dict[int, dict] = {
-    1: {"rooms": (6, 8), "monsters": 4, "items": 3},
-    2: {"rooms": (6, 9), "monsters": 6, "items": 3},
-    3: {"rooms": (7, 9), "monsters": 8, "items": 2},
-    4: {"rooms": (7, 10), "monsters": 10, "items": 2},
-    5: {"rooms": (5, 6), "monsters": 6, "items": 2},
+    1: {"rooms": (6, 8),  "enemies": {"rat": 2, "goblin": 1, "golem": 1}, "items": 3},
+    2: {"rooms": (6, 9),  "enemies": {"rat": 2, "goblin": 3, "golem": 1}, "items": 3},
+    3: {"rooms": (7, 9),  "enemies": {"rat": 2, "goblin": 4, "golem": 2}, "items": 2},
+    4: {"rooms": (7, 10), "enemies": {"rat": 2, "goblin": 4, "golem": 4}, "items": 2},
+    5: {"rooms": (5, 6),  "enemies": {"rat": 1, "goblin": 2, "golem": 3}, "items": 2},
 }
 
 ROOM_MIN = 5
@@ -40,9 +43,8 @@ MAX_PLACEMENT_TRIES = 200
 # 바닥 아이템 종류 풀 (가중치 = 등장 빈도). 포션이 흔하고 장비는 드물다. docs/02 §5
 ITEM_POOL = ["potion", "potion", "potion", "sword", "shield", "scroll"]
 
-# 적 종류 (docs/02 §3). 종류별 도주 정책이 관찰되도록 각 종류를 최소 1마리씩 보장한다.
-# 층별 조합·비율·가중치·난이도 곡선은 확정하지 않고 Phase 3(DQ2)에 남긴다 — 여기서
-# 가중 풀을 만들지 않는다 (설계 evt_81fb3979).
+# 적 종류 (docs/02 §3). roster를 펼치는 고정 순서로 쓴다 — 층별 조합은 FLOOR_PARAMS의
+# "enemies"가 정하고, 여기서는 결정론적 배치 순서만 담당한다.
 ENEMY_KINDS = ("rat", "goblin", "golem")
 
 
@@ -127,12 +129,10 @@ def generate(floor: int, rng: Rng) -> tuple[Map, list[Actor], list[ItemOnFloor]]
     occupied = {(px, py), (sx, sy)}
     spawn_rooms = rooms[1:] or rooms
 
-    # 각 종류 최소 1마리(관찰용)만 보장하고, 남은 슬롯은 기존 기본값 Goblin으로 채운다.
-    # 남은 슬롯을 균등 랜덤으로 채우면 문서로는 '비율 미확정'이라 해도 실행 의미상 세
-    # 종류에 동일 가중치를 확정해 Phase 3(밸런스/DQ2) 스코프를 앞당긴다. 채움은 밸런스
-    # 결정이 아니라 기존 기본값 유지로 둔다 (크리틱 리뷰 evt_889ae688).
-    roster = list(ENEMY_KINDS)[: params["monsters"]]
-    roster += ["goblin"] * (params["monsters"] - len(roster))
+    # 층별 조합(밸런스 v1)을 ENEMY_KINDS 순서로 펼친다. 조합은 결정, 위치만 rng.
+    roster: list[str] = []
+    for kind in ENEMY_KINDS:
+        roster += [kind] * params["enemies"].get(kind, 0)
 
     for i, kind in enumerate(roster):
         for _ in range(50):
