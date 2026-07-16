@@ -127,10 +127,12 @@ def generate(floor: int, rng: Rng) -> tuple[Map, list[Actor], list[ItemOnFloor]]
     occupied = {(px, py), (sx, sy)}
     spawn_rooms = rooms[1:] or rooms
 
-    # 각 종류를 최소 1마리씩 보장하고 나머지는 균등 랜덤으로 채운다. 비율은 미확정.
+    # 각 종류 최소 1마리(관찰용)만 보장하고, 남은 슬롯은 기존 기본값 Goblin으로 채운다.
+    # 남은 슬롯을 균등 랜덤으로 채우면 문서로는 '비율 미확정'이라 해도 실행 의미상 세
+    # 종류에 동일 가중치를 확정해 Phase 3(밸런스/DQ2) 스코프를 앞당긴다. 채움은 밸런스
+    # 결정이 아니라 기존 기본값 유지로 둔다 (크리틱 리뷰 evt_889ae688).
     roster = list(ENEMY_KINDS)[: params["monsters"]]
-    while len(roster) < params["monsters"]:
-        roster.append(rng.choice(ENEMY_KINDS))
+    roster += ["goblin"] * (params["monsters"] - len(roster))
 
     for i, kind in enumerate(roster):
         for _ in range(50):
