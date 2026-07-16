@@ -33,9 +33,10 @@
 ### 밸런스 파라미터 v1 (Phase 3에서 이 수치를 흔든다 — DQ2)
 
 ```python
-# 밸런스 v1 — 층별 적 조합을 명시한다. 초반 Rat 압박 → 후반 Golem 비중 상승.
+# 밸런스 v2 — 초반 Rat 압박 → 후반 Golem 비중. v1에서 1층 Golem을 제거했다
+# (플레이테스트 시드 20260716에서 1층 조기 조우가 치명적 → 롤백).
 FLOOR_PARAMS = {
-    1: {"rooms": (6, 8),  "enemies": {"rat": 2, "goblin": 1, "golem": 1}, "items": 3},
+    1: {"rooms": (6, 8),  "enemies": {"rat": 2, "goblin": 1}, "items": 3},  # v2: Golem 제거
     2: {"rooms": (6, 9),  "enemies": {"rat": 2, "goblin": 3, "golem": 1}, "items": 3},
     3: {"rooms": (7, 9),  "enemies": {"rat": 2, "goblin": 4, "golem": 2}, "items": 2},
     4: {"rooms": (7, 10), "enemies": {"rat": 2, "goblin": 4, "golem": 4}, "items": 2},

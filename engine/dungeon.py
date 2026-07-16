@@ -25,11 +25,12 @@ from engine.state import (
 
 # 층별 파라미터 v1 — 이 수치는 틀릴 것이다.
 # Phase 3에서 동료 플레이테스트로 흔들고 v2를 낸다 (docs/02_game_design.md §2).
-# 밸런스 v1 (Phase 3 / DQ2). 층별 적 조합을 명시한다 — 이제 분포는 '결정'이다.
-# 초반은 Rat(빠름·약함) 압박, 후반은 Golem(느림·강함) 비중 상승. **이 수치는 틀릴 수
-# 있다**(docs/02 §2) — 동료 플레이테스트로 흔들어 v2를 낸다. 밸런스는 여기 한곳에서만 산다.
+# 밸런스 v2 (Phase 3 / DQ2). 층별 적 조합. v1은 초반 Rat 압박 / 후반 Golem 편중이었으나,
+# 동료 플레이테스트(시드 20260716)에서 준비 수단 없는 1층 Golem 조기 조우가 치명적임이
+# 드러나(1층·3층 사망), v2에서 1층 Golem 1마리를 제거했다 (롤백 결정 evt_a33581a1).
+# Golem 스탯과 2~5층 조합은 유지 — 한 변수만 되돌려 동일 시드로 인과를 비교한다.
 FLOOR_PARAMS: dict[int, dict] = {
-    1: {"rooms": (6, 8),  "enemies": {"rat": 2, "goblin": 1, "golem": 1}, "items": 3},
+    1: {"rooms": (6, 8),  "enemies": {"rat": 2, "goblin": 1}, "items": 3},  # v2: Golem 제거
     2: {"rooms": (6, 9),  "enemies": {"rat": 2, "goblin": 3, "golem": 1}, "items": 3},
     3: {"rooms": (7, 9),  "enemies": {"rat": 2, "goblin": 4, "golem": 2}, "items": 2},
     4: {"rooms": (7, 10), "enemies": {"rat": 2, "goblin": 4, "golem": 4}, "items": 2},
