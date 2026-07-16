@@ -30,9 +30,8 @@ k2g-sample_game/
 ├─ docs/                  # 이 문서 세트
 ├─ app/
 │  ├─ main.py             # FastAPI — HTTP 경계 "만". 게임 로직 0줄.
-│  ├─ store.py            # 세션 저장소. Phase 1~3: dict / Phase 4: SQLite
-│  └─ api/
-│     └─ schemas.py       # Pydantic DTO (요청/응답). 엔진 타입과 분리.
+│  ├─ schemas.py          # Pydantic DTO (요청/응답). 엔진 타입과 분리.
+│  └─ store.py            # 세션 저장소. Phase 1~3: dict / Phase 4: SQLite
 ├─ engine/                # ★ 순수 Python. FastAPI/Pydantic import 금지 ★
 │  ├─ state.py            # GameState, Actor, Item — dataclass
 │  ├─ rng.py              # 시드 RNG ("전역 시드")

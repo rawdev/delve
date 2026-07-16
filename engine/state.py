@@ -96,13 +96,21 @@ def make_player(x: int, y: int) -> Actor:
     )
 
 
-# 적 스펙 — Phase 1은 Goblin 1종뿐이다.
+# 적 스펙 (docs/02_game_design.md §3).
 #
-# Phase 2에서 Rat(speed 150) / Golem(speed 60)을 추가하는 순간 v1 턴 시스템이
-# 깨진다. 그게 사전 설계된 유일한 전환점이다 (docs/04_turn_system_pivot.md).
-# 여기에 속도가 다른 적을 미리 넣지 말 것 — 전환이 일어나지 않으면 DQ1이 죽는다.
+# Phase 2-a 진행 중 — 크리틱 Phase 2 사전 리뷰 권장 순서 1: Rat/Goblin/Golem의
+# `speed`를 **스펙 데이터로만** 추가한다. 이 speed는 아직 (1) Actor 필드가 아니고
+# (2) 던전 스폰에도 쓰이지 않는다. 지금은 "v1이 만족할 수 없는 요구"를 수치로
+# 적어둔 것뿐이고, tests/test_turn.py가 그 요구를 v1에 걸어 xfail로 파열을 증명한다.
+#
+# ⚠️ make_enemy는 speed를 Actor에 복사하지 않는다. Actor에 speed/energy가 올라가는
+# 순간 전환이 '아키텍처 교체'가 아니라 '필드 활성화'로 전락해 DQ1 결정 사슬이
+# 죽는다 (R4). speed/energy가 Actor로 올라가고 던전이 3종을 스폰하는 것은 에너지
+# 스케줄러 전환(v2) 커밋에서 함께 일어난다 → docs/04_turn_system_pivot.md
 ENEMY_SPECS: dict[str, dict] = {
-    "goblin": {"glyph": "g", "hp": 10, "atk": 4, "def_": 1, "xp": 8},
+    "rat":    {"glyph": "r", "hp": 4,  "atk": 2, "def_": 0, "xp": 3,  "speed": 150},
+    "goblin": {"glyph": "g", "hp": 10, "atk": 4, "def_": 1, "xp": 8,  "speed": 100},
+    "golem":  {"glyph": "G", "hp": 26, "atk": 8, "def_": 4, "xp": 20, "speed": 60},
 }
 
 
