@@ -68,12 +68,13 @@ def test_enemies_spawn_walkable_and_not_stacked(floor: int) -> None:
 
 
 @pytest.mark.parametrize("floor", FLOORS)
-def test_only_goblins_in_phase1(floor: int) -> None:
-    """Phase 1은 Goblin 1종뿐이다.
+def test_dungeon_content_is_still_goblin_only(floor: int) -> None:
+    """던전은 아직 Goblin만 스폰한다.
 
-    속도가 다른 적(Rat/Golem)이 들어오는 순간 v1 즉시판정 턴 시스템이 깨진다.
-    그건 Phase 2의 사전 설계된 전환점이다 (docs/04_turn_system_pivot.md).
-    이 테스트는 그 전환을 Phase 1에서 실수로 앞당기지 않도록 막는 가드다.
+    턴 시스템은 v2(에너지 스케줄러)로 전환됐고 엔진은 Rat/Golem의 speed를 지원한다.
+    다만 실제 배치는 이후 콘텐츠/밸런스 작업(Phase 3)에서 다룬다 — 속도 비율 자체는
+    tests/test_turn.py가 직접 구성한 적으로 검증한다.
+    이 테스트가 깨지는 날(던전이 Rat/Golem을 스폰) 밸런스 사이클이 시작된 것이다.
     """
     _, actors = generate(floor, Rng(7))
     assert {a.kind for a in actors[1:]} <= {"goblin"}

@@ -103,19 +103,38 @@ actor.next_time += 100.0 / actor.speed
 ```python
 ENERGY_THRESHOLD = 100
 
-def advance_until_player_turn(state):
+def process_turn(state, action):
+    events = apply_player(state, action)   # invalid이면 여기서 중단 (에너지·turn 불변)
+    state.turn += 1                        # turn = 플레이어가 소비한 행동 수 (발견 2)
+    if descended(events):
+        return events                      # 새 층이 에너지를 리셋 (아래 참고)
+    state.player.energy -= ENERGY_THRESHOLD
+    events += advance_until_player_ready(state)
+    return events
+
+def advance_until_player_ready(state):
     events = []
-    while True:
-        for actor in state.actors:
-            actor.energy += actor.speed
-        for actor in state.actors:            # 결정론: 리스트 순서 고정
-            while actor.energy >= ENERGY_THRESHOLD:
-                if actor.is_player:
-                    return events             # 플레이어 차례 → 입력 대기
-                events += apply(state, actor, ai.decide(state, actor))
-                actor.energy -= ENERGY_THRESHOLD
-        state.turn += 1
+    while state.player.energy < ENERGY_THRESHOLD:
+        for actor in state.actors:         # 살아 있는 액터가 speed만큼 충전
+            if actor.alive:
+                actor.energy += actor.speed
+        for enemy in state.enemies:        # 결정론: 고정 순서, 살아 있는 적만
+            while enemy.energy >= ENERGY_THRESHOLD:
+                if state.status != "playing":
+                    return events           # 플레이어 사망 → 즉시 중단
+                events += apply(state, enemy, ai.decide(state, enemy))
+                enemy.energy -= ENERGY_THRESHOLD
+    return events
 ```
+
+> **크리틱 Phase 2 사전 리뷰 발견 1이 실행 순서를 바로잡았다.** 최초 의사코드는
+> 플레이어(actors[0])를 적과 같은 루프에서 처리해, 플레이어가 임계치에 도달하면 적의
+> 추가 행동 전에 반환할 수 있었다 — Rat의 다중 행동이 부정확해진다. 위 구조는
+> **플레이어 입력을 먼저 소비**하고, 그다음 플레이어가 다시 행동 가능해질 때까지
+> 내부 시간을 진행하며 그 사이 적만 행동시킨다. 그리고 `turn`은 내부 tick이 아니라
+> **플레이어가 소비한 행동 수**로만 증가시켜(발견 2) 재현 표기(seed/floor/turn)의
+> 의미를 v1과 동일하게 보존한다. 층 이동은 새 층에서 에너지 경제를 리셋한다
+> (플레이어는 바로 행동 가능, 새 적은 0에서 시작).
 
 - **채택 이유**:
   1. **정수만 쓴다** → 직렬화·재현이 완벽. 결정론 규칙과 맞는다.

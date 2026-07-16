@@ -1,32 +1,43 @@
-"""턴 시스템 — v1: 즉시판정 (lockstep).
+"""턴 시스템 — v2: 에너지 스케줄러 (정수).
 
-    플레이어 입력 1회 = 모든 액터가 각각 1회 행동.
+    플레이어 입력 1회 → 플레이어가 자기 턴을 소비 → 플레이어가 다시 행동 가능해질
+    때까지 내부 시간을 진행하며, 그 사이 적들은 각자의 speed에 비례해 행동한다.
 
-## 이 결정은 "지금은" 옳다
+## v1(즉시판정)에서 왜 전환했나
 
-현 조건: 적이 Goblin 1종, **속도 개념 없음.** 이 조건에서 에너지 시스템(액터마다
-게이지를 굴리고 스케줄러 루프를 돌리는 것)은 명백한 과설계다 — 복잡도를 지불하고
-얻는 것이 0이다.
+v1은 "1입력 = 전원 정확히 1행동"이었다. 적 3종에 속도를 주자(Rat 150 / Goblin 100 /
+Golem 60) v1으로는 "Rat이 1.5배 행동한다"를 표현할 수 없었다 — tests/test_turn.py가
+그 파열을 증명했다(60>60). 대안 A(적별 카운터 hack)는 적 비율은 맞췄으나 플레이어를
+가속할 자리가 없어 비대칭이었다. 대안 B(float 우선순위 큐)는 직렬화·재현에서 부동소수점
+오차가 결정론을 깬다. 정수 에너지(대안 C)만이 결정론과 플레이어 대칭을 동시에 만족한다.
+→ docs/04_turn_system_pivot.md §3
 
-## 그리고 이 결정은 깨질 것이다
+## 실행 순서 (크리틱 Phase 2 사전 리뷰 발견 1)
 
-Phase 2에서 적 3종에 속도를 준다: Rat 150 / Goblin 100 / Golem 60.
-아래 `for enemy in state.enemies: act_once(enemy)` 구조로는 **"Rat이 1.5번 행동한다"를
-표현할 방법이 없다.** 보스의 "HP 50% 이하 각성"도 마찬가지다.
+docs/04 §3의 최초 의사코드는 actors[0]인 플레이어가 임계치에 도달하면 적 처리 전에
+반환할 수 있어, Rat의 추가 행동이 정확히 표현되지 않을 수 있었다. 그래서 순서를
+바로잡아 채택했다:
 
-그때 에너지 스케줄러로 전환한다 → docs/04_turn_system_pivot.md
+1. 새 게임에서 플레이어 energy=100 (바로 행동 가능).
+2. 유효한 플레이어 행동을 적용하고 energy를 ENERGY_THRESHOLD만큼 차감.
+3. player.energy가 다시 임계치 이상이 될 때까지 내부 시간을 진행한다.
+4. 각 내부 tick에 살아 있는 모든 액터가 speed만큼 energy를 얻는다.
+5. 적은 actors의 고정 순서로 energy>=임계치인 동안 행동하고 임계치만큼 차감한다.
+6. 플레이어가 다시 행동 가능하면 응답을 반환한다(입력 대기).
+7. 잔여 energy는 다음 입력까지 보존된다.
 
-**적에 speed를 넣는 순간 이 파일을 재검토해야 한다.** 그게 사전 설계된 유일한
-통과 지점이며, 지금 미리 앞당기면 전환이 일어나지 않아 DQ1이 죽는다
-(docs/09_risks_checklist.md R4). tests/test_dungeon.py의 `test_only_goblins_in_phase1`이
-가드로 걸려 있다.
+turn 카운터는 **플레이어가 소비한 행동 수**로 유지한다(발견 2) — 내부 tick으로
+증가시키지 않는다. 재현 표기(seed/floor/turn)의 의미를 v1과 동일하게 보존한다.
+
+모든 무작위성은 여전히 engine/rng.py를 거친다. 전투에는 무작위가 없고 스케줄러는
+정수만 쓰므로, 같은 시드·같은 입력이면 events 순서까지 동일하다.
 """
 
 from __future__ import annotations
 
 from engine import actions, ai, dungeon, fov
 from engine.rng import Rng
-from engine.state import MAX_FLOOR, GameState
+from engine.state import ENERGY_THRESHOLD, MAX_FLOOR, GameState
 
 
 def new_game(game_id: str, seed: int | None = None) -> tuple[GameState, Rng]:
@@ -46,28 +57,31 @@ def new_game(game_id: str, seed: int | None = None) -> tuple[GameState, Rng]:
     return state, rng
 
 
-def process_turn(
-    state: GameState, rng: Rng, action: dict
-) -> list[dict]:
-    """플레이어 행동 1회 → 모든 적 1회 행동. v1 즉시판정.
+def process_turn(state: GameState, rng: Rng, action: dict) -> list[dict]:
+    """플레이어 행동 1회 → 플레이어가 다시 행동 가능해질 때까지 내부 시간 진행.
 
-    행동이 성립하지 않으면 actions.InvalidAction이 올라가고 **턴은 소비되지 않는다.**
+    행동이 성립하지 않으면 actions.InvalidAction이 올라가고 **에너지도 turn도
+    소비되지 않는다** (v1과 동일한 계약 — 벽에 부딪혀도 손해가 없다).
     """
     if state.status != "playing":
         raise actions.InvalidAction("게임이 끝났다")
 
     events = _apply_player(state, rng, action)
 
-    # 층을 내려갔으면 이번 턴에 적은 행동하지 않는다 (새 층의 적은 아직 못 봤다).
-    if any(e["t"] == "descend" for e in events):
-        state.turn += 1
+    # turn = 플레이어가 소비한 행동 수 (발견 2). 내부 tick으로는 증가시키지 않는다.
+    state.turn += 1
+
+    # 층을 내려갔으면 새 층이 에너지 경제를 리셋한다(_next_floor). 이번 입력엔 적이
+    # 행동하지 않는다 (새 층의 적은 아직 못 봤다).
+    if any(e["t"] in ("floor", "win") for e in events):
         return events
 
-    if state.status == "playing":
-        events += _apply_enemies(state)
+    state.player.energy -= ENERGY_THRESHOLD  # 플레이어가 자기 턴을 소비
 
-    state.turn += 1
-    fov.compute(state.map, state.player.x, state.player.y)
+    if state.status == "playing":
+        events += _advance_until_player_ready(state)
+        fov.compute(state.map, state.player.x, state.player.y)
+
     return events
 
 
@@ -91,25 +105,42 @@ def _apply_player(state: GameState, rng: Rng, action: dict) -> list[dict]:
     raise actions.InvalidAction(f"모르는 행동: {kind}")
 
 
-def _apply_enemies(state: GameState) -> list[dict]:
-    """★ v1의 핵심 — 모든 적이 정확히 1회 행동한다.
+def _advance_until_player_ready(state: GameState) -> list[dict]:
+    """★ v2의 핵심 — 플레이어가 다시 행동 가능해질 때까지 내부 시간을 진행한다.
 
-    속도가 다른 적을 여기에 끼워넣을 자리가 없다. 그게 이 구조의 한계이자,
-    Phase 2 전환의 이유가 된다.
+    매 tick마다 살아 있는 모든 액터가 speed만큼 energy를 얻는다. 그 tick에 적은
+    actors의 고정 순서로 energy>=임계치인 동안 반복 행동한다 — Rat(150)은 한 입력
+    사이 2번 행동할 수 있고, Golem(60)은 여러 입력에 한 번꼴로만 행동한다. 이 비대칭이
+    v1이 표현하지 못하던 바로 그것이다.
+
+    결정론: 리스트 순서가 고정이고 정수만 쓰므로 같은 상태 → 같은 events 순서.
     """
     events: list[dict] = []
 
-    for enemy in state.enemies:
-        if state.status != "playing":
-            break
+    while state.player.energy < ENERGY_THRESHOLD:
+        for actor in state.actors:
+            if actor.alive:
+                actor.energy += actor.speed
 
-        dx, dy = ai.decide(state, enemy)
-        try:
-            events += actions.move_or_attack(state, enemy, dx, dy)
-        except actions.InvalidAction:
-            events += actions.wait(state, enemy)  # 막혔으면 대기
+        for enemy in state.enemies:  # 고정 순서, 살아 있는 적만
+            while enemy.energy >= ENERGY_THRESHOLD:
+                if state.status != "playing":  # 플레이어가 죽었으면 즉시 중단
+                    return events
+                events += _enemy_act(state, enemy)
+                enemy.energy -= ENERGY_THRESHOLD
+
+        if state.status != "playing":
+            return events
 
     return events
+
+
+def _enemy_act(state: GameState, enemy) -> list[dict]:
+    dx, dy = ai.decide(state, enemy)
+    try:
+        return actions.move_or_attack(state, enemy, dx, dy)
+    except actions.InvalidAction:
+        return actions.wait(state, enemy)  # 막혔으면 대기 (에너지는 소비된다)
 
 
 def _next_floor(state: GameState, rng: Rng) -> list[dict]:
@@ -127,6 +158,10 @@ def _next_floor(state: GameState, rng: Rng) -> list[dict]:
 
     state.map = game_map
     state.actors = [player] + actors[1:]  # 플레이어는 HP/레벨을 유지한 채 데려간다
+
+    # 새 층은 에너지 경제를 리셋한다: 플레이어는 바로 행동 가능, 새 적은 0에서 시작.
+    # (계단을 내려간 그 입력이 이번 층 첫 행동을 소비하지 않도록.)
+    player.energy = ENERGY_THRESHOLD
 
     state.log.append(f"{state.floor}층으로 내려왔다.")
     fov.compute(state.map, player.x, player.y)

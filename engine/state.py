@@ -1,11 +1,12 @@
 """게임 상태 데이터 구조.
 
-주의 (docs/04_turn_system_pivot.md):
-    Actor에 `speed` / `energy` 필드가 **없다.** v1은 즉시판정(lockstep)이라
-    "1입력 = 전원 1행동"이고, 속도 개념 자체가 없다.
+턴 시스템 v2 (에너지 스케줄러) 기준 (docs/04_turn_system_pivot.md):
+    Actor는 `speed`(에너지 회복량)와 `energy`(행동 게이지)를 갖는다. 매 내부 tick에
+    살아 있는 액터가 speed만큼 energy를 얻고, energy가 ENERGY_THRESHOLD 이상이면
+    행동한다. 플레이어도 그냥 액터 하나다 — 이 대칭이 v2의 핵심이며, v1(즉시판정)이
+    표현하지 못하던 속도차를 정수 결정론으로 표현한다.
 
-    적이 1종(Goblin)뿐인 현 조건에서 에너지 시스템은 과설계다. 적에 속도를 넣는
-    순간 이 결정을 재검토해야 한다 — 그때 v1은 구조적으로 깨진다.
+    v1 → v2 전환의 근거와 대안 A/B/C 비교는 docs/04_turn_system_pivot.md에 있다.
 """
 
 from __future__ import annotations
@@ -20,6 +21,9 @@ FLOOR = "."
 STAIRS = ">"
 
 MAX_FLOOR = 5
+
+# 에너지 스케줄러 (v2, docs/04). energy가 이 값 이상이면 액터가 1회 행동하고 이만큼 차감.
+ENERGY_THRESHOLD = 100
 
 
 @dataclass
@@ -36,6 +40,8 @@ class Actor:
     atk: int
     def_: int
     xp: int = 0  # 처치 시 주는 경험치 (플레이어는 0)
+    speed: int = 0  # 에너지 회복량 (v2). 플레이어 100 / Rat 150 / Goblin 100 / Golem 60
+    energy: int = 0  # 행동 게이지 (v2). ENERGY_THRESHOLD 이상이면 1회 행동
 
     @property
     def is_player(self) -> bool:
@@ -92,21 +98,17 @@ class GameState:
 
 def make_player(x: int, y: int) -> Actor:
     return Actor(
-        id="player", kind="player", glyph="@", x=x, y=y, hp=20, max_hp=20, atk=5, def_=2
+        id="player", kind="player", glyph="@", x=x, y=y, hp=20, max_hp=20, atk=5, def_=2,
+        speed=100, energy=ENERGY_THRESHOLD,  # 새 게임에서 플레이어는 바로 행동 가능 (발견 1)
     )
 
 
 # 적 스펙 (docs/02_game_design.md §3).
 #
-# Phase 2-a 진행 중 — 크리틱 Phase 2 사전 리뷰 권장 순서 1: Rat/Goblin/Golem의
-# `speed`를 **스펙 데이터로만** 추가한다. 이 speed는 아직 (1) Actor 필드가 아니고
-# (2) 던전 스폰에도 쓰이지 않는다. 지금은 "v1이 만족할 수 없는 요구"를 수치로
-# 적어둔 것뿐이고, tests/test_turn.py가 그 요구를 v1에 걸어 xfail로 파열을 증명한다.
-#
-# ⚠️ make_enemy는 speed를 Actor에 복사하지 않는다. Actor에 speed/energy가 올라가는
-# 순간 전환이 '아키텍처 교체'가 아니라 '필드 활성화'로 전락해 DQ1 결정 사슬이
-# 죽는다 (R4). speed/energy가 Actor로 올라가고 던전이 3종을 스폰하는 것은 에너지
-# 스케줄러 전환(v2) 커밋에서 함께 일어난다 → docs/04_turn_system_pivot.md
+# v2 에너지 스케줄러 기준: `speed`가 make_enemy를 통해 Actor.speed로 올라간다.
+# Rat 150 / Goblin 100 / Golem 60 — 플레이어(100)보다 빠르거나 느린 적이 존재하고,
+# 그 비율대로 행동 빈도가 갈리는 것이 turn 시스템 v2의 존재 이유다.
+# (v1 즉시판정은 이 비율을 표현할 수 없었다 → docs/04_turn_system_pivot.md)
 ENEMY_SPECS: dict[str, dict] = {
     "rat":    {"glyph": "r", "hp": 4,  "atk": 2, "def_": 0, "xp": 3,  "speed": 150},
     "goblin": {"glyph": "g", "hp": 10, "atk": 4, "def_": 1, "xp": 8,  "speed": 100},
@@ -127,4 +129,5 @@ def make_enemy(kind: str, idx: int, x: int, y: int) -> Actor:
         atk=spec["atk"],
         def_=spec["def_"],
         xp=spec["xp"],
+        speed=spec["speed"],  # energy는 0에서 시작 — 내부 tick으로 채워진다
     )
