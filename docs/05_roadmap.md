@@ -150,7 +150,8 @@
 - [x] 대안 A(카운터 hack) 시도 — 적 비율 90/60/36은 맞으나 플레이어 비대칭으로 기각 (스크래치 실증)
 - [x] **에너지 스케줄러로 전환** (대안 A/B/C 비교 후 C 채택, 크리틱 발견 1 실행순서)
 - [x] `tests/test_turn.py` — 속도 비율 검증 (test_turn_v1.py 대체). 엔진 48 passed
-- [ ] `events[]` 응답 배열 도입 (API 계약 변경) — **전환 비용, 다음 커밋으로 이월**
+- [x] `events[]` 응답 배열 도입 — `POST /action` → `{view, events}` (GET은 `GameView` 유지),
+      FOV 필터(`_visible_events`), 프론트 순서 표시. **전체 69 passed** (fastapi 설치 후 test_api 포함)
 
 **저장한 이벤트**
 - [x] `evt_2ea44503` `리뷰 반영` — 크리틱 발견 3·4 문서 수정 + v1 파열 xfail 고정 → `03f3757`

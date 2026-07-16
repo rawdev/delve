@@ -23,6 +23,8 @@
   #log { height: 8.4em; overflow: hidden; font-size: 13px; color: #8b93a1;
          width: min(100%, 64ch); }
   #log div:last-child { color: #c8ccd4; }
+  #events { font-size: 13px; color: #8b93a1; min-height: 1.2em; letter-spacing: .5px;
+            width: min(100%, 64ch); text-align: center; }
   #banner { font-size: 18px; font-weight: bold; min-height: 1.2em; }
   .dead { color: #e06c75; } .won { color: #7ee081; }
   footer { font-size: 12px; color: #565e6b; text-align: center; }
@@ -45,6 +47,7 @@
 <pre id="map">불러오는 중…</pre>
 
 <div id="banner"></div>
+<div id="events"></div>
 <div id="log"></div>
 
 <footer>
@@ -77,6 +80,7 @@ async function post(url, body) {
 
 async function newGame() {
   game = await post("/api/game", {});
+  renderEvents([]);
   render();
 }
 
@@ -84,8 +88,9 @@ async function act(action) {
   if (busy || !game || game.status !== "playing") return;
   busy = true;
   try {
-    const next = await post(`/api/game/${game.game_id}/action`, action);
-    if (next) { game = next; render(); }        // null이면 무효 행동 — 화면 그대로
+    // v2: 응답이 { view, events }. events는 한 입력 사이 순서대로 일어난 일.
+    const res = await post(`/api/game/${game.game_id}/action`, action);
+    if (res) { game = res.view; renderEvents(res.events); render(); }  // null이면 무효 — 화면 그대로
   } finally {
     busy = false;
   }
@@ -125,6 +130,21 @@ function render() {
     g.status === "dead" ? "당신은 죽었다.  [r] 새 게임"
     : g.status === "won" ? "던전을 빠져나왔다!  [r] 새 게임"
     : "";
+}
+
+function renderEvents(evs) {
+  // 한 입력 사이 순서대로 일어난 일. Rat(150)이 2번 행동하면 여기 두 번 나온다 — v2의 실물.
+  // (서버가 FOV로 필터링하므로 어둠 속 적의 이동은 오지 않는다.)
+  const LABEL = { move: "이동", attack: "공격", death: "처치", levelup: "레벨업", floor: "하강", win: "탈출" };
+  const parts = [];
+  for (const e of evs) {
+    if (e.t === "wait") continue;                 // 대기는 노이즈라 생략
+    const who = e.actor === "player" ? "@" : (e.actor ? e.actor.split("#")[0] : "");
+    parts.push(e.t === "attack"
+      ? `${who}▸공격${e.dmg != null ? " " + e.dmg : ""}`
+      : `${who}▸${LABEL[e.t] || e.t}`.trim());
+  }
+  events.textContent = parts.join("    ");
 }
 
 function cls(ch, visible, enemyGlyphs) {

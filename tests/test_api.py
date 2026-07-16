@@ -1,6 +1,6 @@
 """HTTP 경계 계약 테스트.
 
-`engine/` 테스트(test_dungeon / test_turn_v1)를 **대체하지 않는다.** 저쪽은 게임 규칙을
+`engine/` 테스트(test_dungeon / test_turn)를 **대체하지 않는다.** 저쪽은 게임 규칙을
 HTTP 없이 순수 Python으로 검증하고, 여기는 `app/`이 그 규칙을 올바르게 노출하는지만
 본다. 두 층이 겹치면 엔진 리팩터링 때 API 테스트가 같이 깨져서 경계가 무의미해진다.
 
@@ -88,7 +88,41 @@ def test_wait_advances_turn(client: TestClient) -> None:
     r = client.post(f"/api/game/{game['game_id']}/action", json={"type": "wait"})
 
     assert r.status_code == 200
-    assert r.json()["turn"] == game["turn"] + 1
+    # v2: action 응답은 {view, events}. turn은 view 안에 있다.
+    assert r.json()["view"]["turn"] == game["turn"] + 1
+
+
+def test_action_returns_view_and_events(client: TestClient) -> None:
+    """v2 계약: 최종 상태(view) + 그 사이 순서대로 일어난 일(events)."""
+    game = _new_game(client)
+    r = client.post(f"/api/game/{game['game_id']}/action", json={"type": "wait"})
+
+    body = r.json()
+    assert set(body) == {"view", "events"}
+    assert body["view"]["status"] == "playing"
+    assert isinstance(body["events"], list)
+
+
+def test_events_do_not_leak_invisible_enemies(client: TestClient) -> None:
+    """events[]도 FOV를 존중한다 — 안 보이는 적의 이동/대기는 실리지 않는다.
+
+    이게 새면 GameView가 적을 숨기는 의미가 사라진다 (서버 권위 FOV).
+    """
+    game = _new_game(client)
+    gid = game["game_id"]
+    events = client.post(f"/api/game/{gid}/action", json={"type": "wait"}).json()["events"]
+
+    with store.session(gid) as found:
+        assert found is not None
+        state, _ = found
+        visible_ids = {a.id for a in state.enemies if state.map.visible[a.y][a.x]}
+    visible_ids.add("player")
+
+    for e in events:
+        actor = e.get("actor")
+        assert (
+            actor is None or actor in visible_ids or e.get("target") == "player"
+        ), f"안 보이는 적의 이벤트가 노출됐다: {e}"
 
 
 # --- 오류 계약 -------------------------------------------------------------

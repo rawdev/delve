@@ -15,7 +15,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 from app import store
-from app.schemas import ActionRequest, ActorView, GameView, NewGameRequest
+from app.schemas import (
+    ActionRequest,
+    ActionResponse,
+    ActorView,
+    GameView,
+    NewGameRequest,
+    TurnEvent,
+)
 from engine import actions, turn
 from engine.combat import LEVEL_XP_FACTOR
 from engine.state import MAP_H, MAP_W, GameState
@@ -82,6 +89,24 @@ def _view(state: GameState) -> GameView:
     )
 
 
+def _visible_events(state: GameState, events: list[dict]) -> list[TurnEvent]:
+    """events를 FOV로 필터링한다 — GameView가 안 보이는 적을 숨기는 것과 같은 계약.
+
+    노출: 플레이어 자신의 행동 / 플레이어를 향한 행동(맞으면 안다) / 지금 보이는 적의
+    행동 / 액터 없는 전역 이벤트(floor·win). 감춤: 어둠 속 적의 이동·대기.
+    (게임 규칙이 아니라 응답 성형이다 — _view가 하는 일과 같은 범주. 불변식 2 유지.)
+    """
+    visible_ids = {a.id for a in state.enemies if state.map.visible[a.y][a.x]}
+    visible_ids.add("player")
+
+    out: list[TurnEvent] = []
+    for e in events:
+        actor = e.get("actor")
+        if actor is None or actor in visible_ids or e.get("target") == "player":
+            out.append(TurnEvent(**e))
+    return out
+
+
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
@@ -103,8 +128,12 @@ def get_game(game_id: str) -> GameView:
         return _view(state)
 
 
-@app.post("/api/game/{game_id}/action", response_model=GameView)
-def do_action(game_id: str, req: ActionRequest) -> GameView:
+@app.post(
+    "/api/game/{game_id}/action",
+    response_model=ActionResponse,
+    response_model_exclude_none=True,
+)
+def do_action(game_id: str, req: ActionRequest) -> ActionResponse:
     # store.session()이 게임별 Lock을 잡는다 — 같은 게임의 동시 요청이 직렬화된다.
     # 잠금 없이 두면 state.turn과 Rng 소비가 겹쳐 시드 결정론이 깨진다 (app/store.py).
     with store.session(game_id) as found:
@@ -113,9 +142,11 @@ def do_action(game_id: str, req: ActionRequest) -> GameView:
 
         state, rng = found
         try:
-            turn.process_turn(state, rng, req.model_dump())
+            events = turn.process_turn(state, rng, req.model_dump())
         except actions.InvalidAction as e:
             # 성립하지 않는 행동 — 턴은 소비되지 않았다. 상태를 그대로 돌려준다.
             raise HTTPException(409, str(e)) from e
 
-        return _view(state)
+        # v2: 최종 상태 + 그 사이 순서대로 일어난 일(FOV 필터). Rat이 2번 행동하면
+        # events에 두 번 나온다 — 이게 전환이 클라이언트까지 파급되는 지점이다.
+        return ActionResponse(view=_view(state), events=_visible_events(state, events))
