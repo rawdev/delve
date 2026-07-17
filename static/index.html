@@ -22,8 +22,8 @@
   .item  { color: #d7a3ff; font-weight: bold; }
   #hud { display: flex; gap: 18px; font-size: 14px; flex-wrap: wrap; justify-content: center; }
   #hud b { color: #e8e8ea; }
-  #log { height: 8.4em; overflow: hidden; font-size: 13px; color: #8b93a1;
-         width: min(100%, 64ch); }
+  #log { height: 8.4em; overflow-y: auto; font-size: 13px; line-height: 1.4;
+         color: #8b93a1; width: min(100%, 64ch); scrollbar-gutter: stable; }
   #log div:last-child { color: #c8ccd4; }
   #events { font-size: 13px; color: #8b93a1; min-height: 1.2em; letter-spacing: .5px;
             width: min(100%, 64ch); text-align: center; }
@@ -163,6 +163,7 @@ function render() {
   map.innerHTML = html;
 
   log.innerHTML = g.log.map(line => `<div>${esc(line)}</div>`).join("");
+  log.scrollTop = log.scrollHeight;  // 최신 로그가 잘리지 않도록 항상 아래쪽을 보여준다.
   renderInv();
   renderControls();
 
