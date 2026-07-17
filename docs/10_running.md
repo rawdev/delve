@@ -166,14 +166,26 @@ pytest
 > 아니라 방어선이 있다는 착각이다. 지금은 "같은 게임을 두 요청이 동시에 처리 중인 순간이
 > 있었나"를 직접 센다 — Lock을 지우면 반드시 실패한다.
 
-## 8. 배포 (Phase 5)
+## 8. 배포 (Railway)
 
-Railway. 단일 컨테이너, 빌드 스텝 없음.
+Railway. 단일 컨테이너, 빌드 스텝 없음. 저장소 루트의 **`Procfile`이 그대로 실행 명령**이다:
 
 ```bash
 # Procfile
-web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+web: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
+
+- `$PORT`는 Railway가 주입한다. `--host 0.0.0.0`이 없으면 컨테이너 밖에서 접속이 안 된다.
+- **`uvicorn`이 아니라 `python -m uvicorn`인 이유**: 콘솔 스크립트가 PATH에 있다는 보장이
+  환경마다 다르다 — 실제로 로컬에서 `uvicorn: command not found`를 만났다. `python -m`은
+  PATH에 의존하지 않는다. **이 문서의 명령을 그대로 실행해 검증했다** (`$PORT` 주입,
+  `0.0.0.0` 바인딩, `GET /` 200, `POST /api/game` 200) — §7 상단의 교훈과 같은 이유다.
+- Python 버전은 `.python-version`(3.12)으로 고정한다.
+- 런타임 의존성은 `requirements.txt`의 둘(fastapi, uvicorn)뿐. `requirements-dev.txt`는
+  배포 컨테이너에 들어가지 않는다.
+
+> **배포된 서버의 상태도 인메모리다.** 재시작하면 진행 중인 게임이 사라진다 (§3, §10).
+> 세이브(Phase 4)를 만들지 않았으므로 이건 **알려진 한계이지 버그가 아니다.**
 
 배포 후 [07_github_provenance.md](07_github_provenance.md) §5의 README **4종 링크**
 (플레이 URL / GitHub / 정적 메모리 페이지 / AiAkiv sample 프로젝트)를 채운다.
