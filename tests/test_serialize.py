@@ -36,8 +36,15 @@ def test_roundtrip_preserves_state() -> None:
 
 
 def test_rng_state_is_restored_not_just_seed() -> None:
-    """복원된 rng는 저장 시점의 '이미 소비된' 상태에서 이어진다 — seed만으론 안 된다."""
+    """복원된 rng는 저장 시점의 '이미 소비된' 상태에서 이어진다 — seed만으론 안 된다.
+
+    RNG 스트림 분리(evt_5c9d0278) 이후 던전 생성은 **파생 스트림**을 쓰므로 부모 RNG를
+    소비하지 않는다. 그래서 계약을 "던전 생성이 부모를 소비한다"(구현 세부)가 아니라
+    "저장 시점의 소비 상태가 복원된다"로 검증한다.
+    """
     state, rng = _played()
+    for _ in range(5):
+        rng.randint(0, 1000)  # 부모 RNG가 실제로 소비된 상태를 만든다
     saved = serialize.to_json(state, rng)
 
     _, rng_restored = serialize.from_json(saved)

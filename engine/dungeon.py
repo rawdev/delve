@@ -48,6 +48,13 @@ ITEM_POOL = ["potion", "potion", "potion", "sword", "shield", "scroll"]
 # "enemies"가 정하고, 여기서는 결정론적 배치 순서만 담당한다.
 ENEMY_KINDS = ("rat", "goblin", "golem")
 
+# RNG 스트림 namespace (설계 evt_5c9d0278). 층마다 root seed에서 독립 파생해, 한 스트림의
+# 소비량 변화가 다른 스트림이나 이후 층을 흔들지 않게 한다. 버전을 넣어 규칙이 바뀌어도
+# 과거 스트림과 충돌하지 않게 한다.
+LAYOUT_NS = "dungeon/layout/v1"
+ITEMS_NS = "dungeon/items/v1"
+ENEMIES_NS = "dungeon/enemies/v1"
+
 
 def _overlaps(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> bool:
     """방 사이에 최소 1칸 벽이 남도록 1칸 여유를 두고 판정."""
@@ -97,26 +104,45 @@ def _carve_corridor(
 
 
 def generate(floor: int, rng: Rng) -> tuple[Map, list[Actor], list[ItemOnFloor]]:
-    """한 층을 생성한다. actors[0]은 플레이어."""
+    """한 층을 생성한다. actors[0]은 플레이어.
+
+    ## RNG 분리 (설계 evt_5c9d0278)
+
+    층마다 root seed에서 layout / items / enemies **독립 스트림**을 파생한다. 파생은 부모를
+    소비하지 않으므로, 한 스트림의 소비량이 달라져도 나머지와 **이후 층**이 그대로다.
+
+    생성 순서는 **구조 → 아이템 예약 → 적 배치**다. 아이템을 먼저 확정하고 적이 그 칸을
+    피하게 해야, 적 수 변화가 아이템의 충돌 판정까지 흔들지 않는다. (반대 순서면 적 조합에
+    따라 아이템 재시도 결과가 달라진다.)
+
+    덕분에 **적 조합만 바꾼 동일 시드 비교가 실제 통제 실험**이 된다 — 밸런스 v2 재시험
+    evt_5d80dac6에서 적 1마리 제거가 아이템·후속 층까지 흔들어 비교가 무의미해졌던 문제의
+    수정이다.
+    """
     params = FLOOR_PARAMS[floor]
 
+    layout_rng = rng.derive(LAYOUT_NS, floor)
+    items_rng = rng.derive(ITEMS_NS, floor)
+    enemies_rng = rng.derive(ENEMIES_NS, floor)
+
+    # 1) 구조 — 방·복도·계단 (layout 스트림)
     tiles = [[WALL for _ in range(MAP_W)] for _ in range(MAP_H)]
     rooms: list[tuple[int, int, int, int]] = []
 
-    target = rng.randint(*params["rooms"])
+    target = layout_rng.randint(*params["rooms"])
     tries = 0
     while len(rooms) < target and tries < MAX_PLACEMENT_TRIES:
         tries += 1
-        w = rng.randint(ROOM_MIN, ROOM_MAX)
-        h = rng.randint(ROOM_MIN, min(ROOM_MAX, MAP_H - 4))
-        x = rng.randint(1, MAP_W - w - 2)
-        y = rng.randint(1, MAP_H - h - 2)
+        w = layout_rng.randint(ROOM_MIN, ROOM_MAX)
+        h = layout_rng.randint(ROOM_MIN, min(ROOM_MAX, MAP_H - 4))
+        x = layout_rng.randint(1, MAP_W - w - 2)
+        y = layout_rng.randint(1, MAP_H - h - 2)
         room = (x, y, w, h)
         if any(_overlaps(room, other) for other in rooms):
             continue
         _carve_room(tiles, room)
         if rooms:
-            _carve_corridor(tiles, _center(rooms[-1]), _center(room), rng)
+            _carve_corridor(tiles, _center(rooms[-1]), _center(room), layout_rng)
         rooms.append(room)
 
     # 플레이어는 첫 방, 계단은 마지막 방.
@@ -124,43 +150,47 @@ def generate(floor: int, rng: Rng) -> tuple[Map, list[Actor], list[ItemOnFloor]]
     sx, sy = _center(rooms[-1])
     tiles[sy][sx] = STAIRS
 
+    spawn_rooms = rooms[1:] or rooms  # 첫 방(시작 방)에는 아무것도 놓지 않는다
+    reserved = {(px, py), (sx, sy)}
+
+    # 2) 아이템 예약 — 적보다 **먼저** 확정한다 (items 스트림).
+    floor_items: list[ItemOnFloor] = []
+    for i in range(params.get("items", 0)):
+        for _ in range(50):
+            rx, ry, rw, rh = items_rng.choice(spawn_rooms)
+            ix = items_rng.randint(rx, rx + rw - 1)
+            iy = items_rng.randint(ry, ry + rh - 1)
+            if (ix, iy) not in reserved:
+                reserved.add((ix, iy))
+                floor_items.append(
+                    # ID에 층 번호를 넣는다 — 인벤토리는 층을 넘어 유지되므로 층마다
+                    # item#0을 재사용하면 서로 다른 아이템이 같은 id를 갖는다 (evt_5e7f2360 높음3).
+                    ItemOnFloor(
+                        id=f"f{floor}-item#{i}",
+                        kind=items_rng.choice(ITEM_POOL),
+                        x=ix,
+                        y=iy,
+                    )
+                )
+                break
+
+    # 3) 적 배치 — 예약된 칸(플레이어·계단·아이템)을 피한다 (enemies 스트림).
     actors: list[Actor] = [make_player(px, py)]
+    occupied = set(reserved)
 
-    # 적 배치 — 첫 방(플레이어 시작 방)에는 넣지 않는다.
-    occupied = {(px, py), (sx, sy)}
-    spawn_rooms = rooms[1:] or rooms
-
-    # 층별 조합(밸런스 v1)을 ENEMY_KINDS 순서로 펼친다. 조합은 결정, 위치만 rng.
+    # 층별 조합(밸런스)을 ENEMY_KINDS 순서로 펼친다. 조합은 결정, 위치만 rng.
     roster: list[str] = []
     for kind in ENEMY_KINDS:
         roster += [kind] * params["enemies"].get(kind, 0)
 
     for i, kind in enumerate(roster):
         for _ in range(50):
-            room = rng.choice(spawn_rooms)
-            rx, ry, rw, rh = room
-            ex = rng.randint(rx, rx + rw - 1)
-            ey = rng.randint(ry, ry + rh - 1)
+            rx, ry, rw, rh = enemies_rng.choice(spawn_rooms)
+            ex = enemies_rng.randint(rx, rx + rw - 1)
+            ey = enemies_rng.randint(ry, ry + rh - 1)
             if (ex, ey) not in occupied:
                 occupied.add((ex, ey))
                 actors.append(make_enemy(kind, i, ex, ey))
-                break
-
-    # 바닥 아이템 — 적과 같은 방식으로 겹치지 않게 놓는다 (첫 방 제외).
-    floor_items: list[ItemOnFloor] = []
-    for i in range(params.get("items", 0)):
-        for _ in range(50):
-            room = rng.choice(spawn_rooms)
-            rx, ry, rw, rh = room
-            ix = rng.randint(rx, rx + rw - 1)
-            iy = rng.randint(ry, ry + rh - 1)
-            if (ix, iy) not in occupied:
-                occupied.add((ix, iy))
-                floor_items.append(
-                    # ID에 층 번호를 넣는다 — 인벤토리는 층을 넘어 유지되므로 층마다
-                    # item#0을 재사용하면 서로 다른 아이템이 같은 id를 갖는다 (evt_5e7f2360 높음3).
-                    ItemOnFloor(id=f"f{floor}-item#{i}", kind=rng.choice(ITEM_POOL), x=ix, y=iy)
-                )
                 break
 
     game_map = Map(

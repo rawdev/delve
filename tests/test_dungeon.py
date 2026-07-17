@@ -94,6 +94,51 @@ def test_item_ids_are_unique_across_floors() -> None:
     assert {it.id for it in items1}.isdisjoint({it.id for it in items2})
 
 
+# --- RNG 스트림 격리 (설계 evt_5c9d0278) — 밸런스 A/B를 통제 실험으로 만드는 계약 ---
+
+
+def test_enemy_composition_change_does_not_move_layout_or_items(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """★ 적 조합만 바꿔도 같은 시드의 구조·아이템이 그대로다.
+
+    이게 깨져 있어서 밸런스 v2 재시험(evt_5d80dac6)이 통제 실험이 아니었다 — 적 1마리
+    제거가 아이템 위치와 장비 획득까지 바꿨다.
+    """
+    base_map, _, base_items = generate(1, Rng(20260716))
+
+    monkeypatch.setitem(
+        FLOOR_PARAMS, 1, {**FLOOR_PARAMS[1], "enemies": {"rat": 5, "goblin": 4}}
+    )
+    new_map, new_actors, new_items = generate(1, Rng(20260716))
+
+    assert len(new_actors) - 1 == 9, "적 조합은 실제로 바뀌었다"
+    assert new_map.tiles == base_map.tiles, "구조가 흔들렸다"
+    assert new_map.rooms == base_map.rooms
+    assert [(i.id, i.kind, i.x, i.y) for i in new_items] == [
+        (j.id, j.kind, j.x, j.y) for j in base_items
+    ], "아이템이 흔들렸다"
+
+
+def test_floor1_enemy_change_does_not_affect_floor2(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """1층 적 수를 바꿔도 같은 시드의 2층 생성이 그대로다 — 층 사이 RNG 연쇄를 끊었다."""
+    rng_a = Rng(20260716)
+    generate(1, rng_a)
+    map_a, actors_a, items_a = generate(2, rng_a)
+
+    monkeypatch.setitem(FLOOR_PARAMS, 1, {**FLOOR_PARAMS[1], "enemies": {"rat": 7}})
+
+    rng_b = Rng(20260716)
+    generate(1, rng_b)  # 1층 조합이 다르다
+    map_b, actors_b, items_b = generate(2, rng_b)
+
+    assert map_b.tiles == map_a.tiles
+    assert [(a.kind, a.x, a.y) for a in actors_b] == [(a.kind, a.x, a.y) for a in actors_a]
+    assert [(i.kind, i.x, i.y) for i in items_b] == [(i.kind, i.x, i.y) for i in items_a]
+
+
 @pytest.mark.parametrize("floor", FLOORS)
 def test_enemy_composition_matches_floor_params(floor: int) -> None:
     """던전 생성이 밸런스 v1의 층별 적 조합(FLOOR_PARAMS['enemies'])을 그대로 배치한다.
