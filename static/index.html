@@ -11,7 +11,8 @@
     font-family: "Consolas", "D2Coding", "Courier New", monospace;
     display: flex; flex-direction: column; align-items: center; gap: 10px;
   }
-  #map { font-size: 15px; line-height: 1.0; letter-spacing: 1px; white-space: pre; margin: 0; }
+  #map { font-size: 15px; line-height: 1.0; letter-spacing: 1px; white-space: pre; margin: 0;
+         cursor: crosshair; }        /* 타일을 클릭하면 그쪽으로 한 칸 */
   .dark  { color: #2f3540; }               /* explored, 지금은 안 보임 */
   .wall  { color: #6b7382; }
   .floor { color: #454c58; }
@@ -29,6 +30,17 @@
   #inv { display: none; font-size: 13px; color: #b9c0cc; width: min(100%, 64ch);
          border: 1px solid #2f3540; padding: 6px 10px; box-sizing: border-box; }
   #inv div:first-child { color: #e8c46a; margin-bottom: 4px; }
+  .inv-item { cursor: pointer; }
+  .inv-item:hover { color: #e8e8ea; }
+  #controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  #controls button {
+    background: #1a1e25; color: #c8ccd4; border: 1px solid #2f3540; border-radius: 3px;
+    padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  #controls button:hover:not(:disabled) { border-color: #7aa2f7; color: #e8e8ea; }
+  #controls button:disabled { opacity: .35; cursor: default; }
+  #controls button.ready { border-color: #e8c46a; color: #e8c46a; }  /* 지금 할 수 있다 */
+  #controls kbd { color: #7aa2f7; font: inherit; font-size: 11px; }
   #banner { font-size: 18px; font-weight: bold; min-height: 1.2em; }
   .dead { color: #e06c75; } .won { color: #7ee081; }
   footer { font-size: 12px; color: #565e6b; text-align: center; }
@@ -50,16 +62,26 @@
 
 <pre id="map">불러오는 중…</pre>
 
+<div id="controls">
+  <button id="btnPick">줍기 <kbd>g</kbd></button>
+  <button id="btnDown">계단 <kbd>&gt;</kbd></button>
+  <button id="btnWait">대기 <kbd>.</kbd></button>
+  <button id="btnBag">가방 <kbd>i</kbd></button>
+  <button id="btnNew">새 게임 <kbd>r</kbd></button>
+</div>
+
 <div id="banner"></div>
 <div id="events"></div>
 <div id="log"></div>
 <div id="inv"></div>
 
 <footer>
-  이동 <b>방향키</b> / <b>hjkl</b>(+<b>yubn</b> 대각) &nbsp;·&nbsp; 대기 <b>.</b>
-  &nbsp;·&nbsp; 계단 <b>&gt;</b> &nbsp;·&nbsp; 줍기 <b>g</b> &nbsp;·&nbsp; 가방 <b>i</b>
-  &nbsp;·&nbsp; 새 게임 <b>r</b><br>
-  적이 있는 칸으로 이동하면 공격합니다. 죽으면 처음부터 (permadeath).<br>
+  <b>타일을 클릭</b>하면 그쪽으로 한 칸 갑니다 (적이 있으면 공격) &nbsp;·&nbsp;
+  나머지 행동은 위 <b>버튼</b>으로.<br>
+  <span style="color:#454c58">단축키(선택): 이동 <b>방향키</b>/<b>hjkl</b>(+<b>yubn</b> 대각)
+  · 대기 <b>.</b> · 계단 <b>&gt;</b> · 줍기 <b>g</b> · 가방 <b>i</b> · 새 게임 <b>r</b>
+  · 가방 열고 <b>숫자</b>키로 사용/장착</span><br>
+  죽으면 처음부터 (permadeath).<br>
   <span style="color:#454c58">이 게임의 개발 과정은 전부 공개 메모리로 남습니다.</span>
 </footer>
 
@@ -68,6 +90,13 @@ const DIRS = {
   ArrowUp: "north", ArrowDown: "south", ArrowLeft: "west", ArrowRight: "east",
   k: "north", j: "south", h: "west", l: "east",
   y: "northwest", u: "northeast", b: "southwest", n: "southeast",
+};
+
+// (dx, dy) → 방향 이름. 타일을 클릭하면 **그쪽으로 한 칸** 간다 — 경로탐색은 하지 않는다.
+// 벽이면 서버가 409로 거부하고 턴도 소비되지 않으므로 화면만 그대로다.
+const STEP_DIR = {
+  "0,-1": "north", "0,1": "south", "-1,0": "west", "1,0": "east",
+  "-1,-1": "northwest", "1,-1": "northeast", "-1,1": "southwest", "1,1": "southeast",
 };
 
 let game = null;
@@ -127,7 +156,7 @@ function render() {
     for (let x = 0; x < g.width; x++) {
       const ch = grid[y][x];
       const visible = g.lit[y][x] === "1";
-      html += `<span class="${cls(ch, visible, enemyGlyphs, itemGlyphs)}">${esc(ch)}</span>`;
+      html += `<span class="${cls(ch, visible, enemyGlyphs, itemGlyphs)}" data-x="${x}" data-y="${y}">${esc(ch)}</span>`;
     }
     html += "\n";
   }
@@ -135,12 +164,27 @@ function render() {
 
   log.innerHTML = g.log.map(line => `<div>${esc(line)}</div>`).join("");
   renderInv();
+  renderControls();
 
   banner.className = g.status === "dead" ? "dead" : g.status === "won" ? "won" : "";
   banner.textContent =
     g.status === "dead" ? "당신은 죽었다.  [r] 새 게임"
     : g.status === "won" ? "던전을 빠져나왔다!  [r] 새 게임"
     : "";
+}
+
+function stepToward(tx, ty) {
+  if (!game || game.status !== "playing") return;
+  const p = game.player;
+  const dx = Math.sign(tx - p.x);
+  const dy = Math.sign(ty - p.y);
+  if (dx === 0 && dy === 0) { act({ type: "wait" }); return; }  // 제자리 클릭 = 대기
+  act({ type: "move", dir: STEP_DIR[`${dx},${dy}`] });
+}
+
+function toggleInv() {
+  invOpen = !invOpen;
+  inv.style.display = invOpen ? "block" : "none";
 }
 
 function renderEvents(evs) {
@@ -164,9 +208,27 @@ function renderInv() {
   const a = g.equipped.armor ? g.equipped.armor.name : "없음";
   let html = `<div>장착 — 무기 ${esc(w)} / 방어구 ${esc(a)}</div>`;
   html += g.inventory.length
-    ? g.inventory.map((it, i) => `<div>${i + 1}. ${esc(it.glyph)} ${esc(it.name)}</div>`).join("")
+    ? g.inventory
+        .map((it, i) => `<div class="inv-item" data-idx="${i}">${i + 1}. ${esc(it.glyph)} ${esc(it.name)}</div>`)
+        .join("")
     : `<div style="color:#565e6b">가방이 비었다</div>`;
   inv.innerHTML = html;
+}
+
+function renderControls() {
+  const g = game;
+  const playing = g.status === "playing";
+  const onItem = g.floor_items.some(it => it.x === g.player.x && it.y === g.player.y);
+  const onStairs = g.tiles[g.player.y][g.player.x] === ">";
+
+  // 지금 할 수 있는 것만 켠다 — 문자 키 계약을 미리 알 필요가 없게 (리뷰 evt_aea8a4ec).
+  // 플레이어 글리프가 발밑 아이템을 가리므로, '줍기'가 켜지는 것이 곧 그 발견이다.
+  btnPick.disabled = !playing || !onItem;
+  btnPick.classList.toggle("ready", playing && onItem);
+  btnDown.disabled = !playing || !onStairs;
+  btnDown.classList.toggle("ready", playing && onStairs);
+  btnWait.disabled = !playing;
+  btnBag.innerHTML = `가방${g.inventory.length ? " " + g.inventory.length : ""} <kbd>i</kbd>`;
 }
 
 function applyItem(idx) {
@@ -190,9 +252,27 @@ function cls(ch, visible, enemyGlyphs, itemGlyphs) {
 
 const esc = s => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
+// 마우스 — 타일 클릭으로 이동/공격, 인벤토리 항목 클릭으로 사용/장착, 버튼으로 행동.
+// 키보드 단축키는 그대로 두고 '고급 조작'으로 남긴다 (리뷰 evt_aea8a4ec의 수정 후보).
+map.addEventListener("click", e => {
+  const cell = e.target.closest("span[data-x]");
+  if (cell) stepToward(Number(cell.dataset.x), Number(cell.dataset.y));
+});
+
+inv.addEventListener("click", e => {
+  const row = e.target.closest(".inv-item");
+  if (row) applyItem(Number(row.dataset.idx));
+});
+
+btnPick.onclick = () => act({ type: "pickup" });
+btnDown.onclick = () => act({ type: "descend" });
+btnWait.onclick = () => act({ type: "wait" });
+btnBag.onclick = toggleInv;
+btnNew.onclick = newGame;
+
 addEventListener("keydown", e => {
   if (e.key === "r") { newGame(); return; }
-  if (e.key === "i") { invOpen = !invOpen; inv.style.display = invOpen ? "block" : "none"; return; }
+  if (e.key === "i") { toggleInv(); return; }
   if (e.key === "g") { act({ type: "pickup" }); return; }
   if (invOpen && e.key >= "1" && e.key <= "9") { applyItem(Number(e.key) - 1); return; }
   if (e.key in DIRS) { e.preventDefault(); act({ type: "move", dir: DIRS[e.key] }); return; }
