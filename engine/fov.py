@@ -1,10 +1,3 @@
-"""시야 — 그림자 캐스팅(recursive shadowcasting).
-
-visible = 지금 보이는 곳, explored = 가본 적 있는 곳. 둘을 분리해야 "가봤지만 지금은
-안 보이는 곳"(기억)을 어둡게 그릴 수 있다.
-
-무작위성이 없다 — 순수 기하 계산이다. Rng를 받지 않는다.
-"""
 
 from __future__ import annotations
 
@@ -12,7 +5,7 @@ from engine.state import WALL, Map
 
 RADIUS = 8
 
-# 8분면 변환 (xx, xy, yx, yy)
+
 _OCTANTS = [
     (1, 0, 0, 1),
     (0, 1, 1, 0),
@@ -80,7 +73,6 @@ def _cast(
 
 
 def compute(game_map: Map, cx: int, cy: int) -> None:
-    """(cx, cy)에서의 시야를 계산해 game_map.visible / explored를 갱신한다."""
     for row in game_map.visible:
         for x in range(len(row)):
             row[x] = False

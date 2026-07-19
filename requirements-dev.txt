@@ -1,12 +1,9 @@
-# 테스트 전용 의존성. 배포 컨테이너에는 들어가지 않는다.
+# Test-only dependencies; these are not installed in the deployment container.
 #
-# 런타임 의존성은 requirements.txt의 둘(fastapi, uvicorn)뿐이라는 주장을 지키기 위해
-# 파일을 나눴다. 그 주장의 실체는 "배포되는 것에 뭐가 들어가나"이지 "저장소에 requirements
-# 파일이 몇 개냐"가 아니다.
+# Keep these separate so the deployed runtime still contains only FastAPI and Uvicorn.
 #
-# httpx: FastAPI의 TestClient가 내부적으로 요구한다. HTTP 경계(app/)를 실제 요청으로
-#        검증하려면 피할 수 없다 — 직접 ASGI를 호출하는 건 클라이언트를 다시 짜는 것이다.
-#        engine/ 테스트는 여전히 HTTP 없이 순수 Python으로 돈다 (불변식 1).
+# httpx is required internally by FastAPI TestClient for real HTTP-boundary tests.
+# Engine tests still run as pure Python without HTTP.
 
 -r requirements.txt
 

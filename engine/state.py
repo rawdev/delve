@@ -1,13 +1,3 @@
-"""게임 상태 데이터 구조.
-
-턴 시스템 v2 (에너지 스케줄러) 기준 (docs/04_turn_system_pivot.md):
-    Actor는 `speed`(에너지 회복량)와 `energy`(행동 게이지)를 갖는다. 매 내부 tick에
-    살아 있는 액터가 speed만큼 energy를 얻고, energy가 ENERGY_THRESHOLD 이상이면
-    행동한다. 플레이어도 그냥 액터 하나다 — 이 대칭이 v2의 핵심이며, v1(즉시판정)이
-    표현하지 못하던 속도차를 정수 결정론으로 표현한다.
-
-    v1 → v2 전환의 근거와 대안 A/B/C 비교는 docs/04_turn_system_pivot.md에 있다.
-"""
 
 from __future__ import annotations
 
@@ -22,13 +12,12 @@ STAIRS = ">"
 
 MAX_FLOOR = 5
 
-# 에너지 스케줄러 (v2, docs/04). energy가 이 값 이상이면 액터가 1회 행동하고 이만큼 차감.
+
 ENERGY_THRESHOLD = 100
 
 
 @dataclass
 class Actor:
-    """플레이어와 적이 공유하는 구조. actors[0]은 항상 플레이어다."""
 
     id: str
     kind: str  # "player" | "goblin"
@@ -39,9 +28,9 @@ class Actor:
     max_hp: int
     atk: int
     def_: int
-    xp: int = 0  # 처치 시 주는 경험치 (플레이어는 0)
-    speed: int = 0  # 에너지 회복량 (v2). 플레이어 100 / Rat 150 / Goblin 100 / Golem 60
-    energy: int = 0  # 행동 게이지 (v2). ENERGY_THRESHOLD 이상이면 1회 행동
+    xp: int = 0
+    speed: int = 0
+    energy: int = 0
 
     @property
     def is_player(self) -> bool:
@@ -68,7 +57,6 @@ class Map:
 
 @dataclass
 class Item:
-    """가방/장착 슬롯에 들어가는 아이템. 효과·글리프는 engine/items.py의 스펙에서 본다."""
 
     id: str
     kind: str  # potion | sword | shield | scroll
@@ -76,7 +64,6 @@ class Item:
 
 @dataclass
 class ItemOnFloor:
-    """바닥에 놓인 아이템. 플레이어가 그 칸에서 pickup하면 인벤토리로 들어간다."""
 
     id: str
     kind: str
@@ -95,11 +82,11 @@ class GameState:
     log: list[str] = field(default_factory=list)
     status: str = "playing"  # "playing" | "dead" | "won"
 
-    # 플레이어 진행 (레벨업)
+
     level: int = 1
     player_xp: int = 0
 
-    # 인벤토리 (Phase 2-b). 이 필드들이 생기면서 세이브 포맷이 v1 → v2로 바뀐다 (BQ3).
+
     inventory: list[Item] = field(default_factory=list)
     equipped: dict = field(default_factory=lambda: {"weapon": None, "armor": None})
     floor_items: list[ItemOnFloor] = field(default_factory=list)
@@ -122,16 +109,16 @@ class GameState:
 def make_player(x: int, y: int) -> Actor:
     return Actor(
         id="player", kind="player", glyph="@", x=x, y=y, hp=20, max_hp=20, atk=5, def_=2,
-        speed=100, energy=ENERGY_THRESHOLD,  # 새 게임에서 플레이어는 바로 행동 가능 (발견 1)
+        speed=100, energy=ENERGY_THRESHOLD,
     )
 
 
-# 적 스펙 (docs/02_game_design.md §3).
+
 #
-# v2 에너지 스케줄러 기준: `speed`가 make_enemy를 통해 Actor.speed로 올라간다.
-# Rat 150 / Goblin 100 / Golem 60 — 플레이어(100)보다 빠르거나 느린 적이 존재하고,
-# 그 비율대로 행동 빈도가 갈리는 것이 turn 시스템 v2의 존재 이유다.
-# (v1 즉시판정은 이 비율을 표현할 수 없었다 → docs/04_turn_system_pivot.md)
+
+
+
+
 ENEMY_SPECS: dict[str, dict] = {
     "rat":    {"glyph": "r", "hp": 4,  "atk": 2, "def_": 0, "xp": 3,  "speed": 150},
     "goblin": {"glyph": "g", "hp": 10, "atk": 4, "def_": 1, "xp": 8,  "speed": 100},
@@ -152,5 +139,5 @@ def make_enemy(kind: str, idx: int, x: int, y: int) -> Actor:
         atk=spec["atk"],
         def_=spec["def_"],
         xp=spec["xp"],
-        speed=spec["speed"],  # energy는 0에서 시작 — 내부 tick으로 채워진다
+        speed=spec["speed"],
     )

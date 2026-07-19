@@ -1,51 +1,42 @@
 # Delve
 
-웹 턴제 로그라이크. 그리고 **이 게임의 개발 과정 전체가 AI 공유 메모리로 남아
-있습니다.**
+A turn-based web roguelike whose entire development history is preserved in shared AI memory.
 
-- ▶ **플레이**: _(Phase 5에서 배포 — 준비 중)_
-- 📦 **코드**: 이 저장소
-- 🧠 **왜 이렇게 만들었나 (읽기 — 가입 불필요)**: _(Phase 5 — 준비 중)_
-- 💬 **그래프에 직접 물어보기**: _(Phase 5 — AiAkiv 가입 시 Delve sample 프로젝트 제공)_
+- **Play**: deployment link coming in Phase 5
+- **Code**: this repository
+- **Read why it was built this way**: public static history coming in Phase 5
+- **Ask the graph directly**: AiAkiv users receive a read-only Delve sample project
 
-## 이게 뭔가요
+## What is this?
 
-git 히스토리는 **무엇이** 바뀌었는지 보여줍니다.
-메모리는 **왜** 그렇게 했는지 — 어떤 대안을 검토하고 왜 버렸는지 — 를 보여줍니다.
+Git history shows **what** changed. Memory shows **why** it changed: which alternatives were considered and why they were rejected.
 
-이 프로젝트에서는 게임을 실제로 만들면서, 모든 설계 결정·버그 수정·밸런스 조정을
-AiAkiv에 저장합니다. 사람 2명과 AI 3종(Claude Code / ChatGPT / Gemini)이 같은 메모리에
-함께 쌓습니다.
+While building the game for real, we store every design decision, bug fix, and balance adjustment in AiAkiv. Two people and three AI systems (Claude Code, ChatGPT, and Gemini) contribute to the same memory graph.
 
-**주인공은 게임이 아니라 개발 궤적입니다.** 게임이 재밌을 필요는 없고, 궤적이 진짜면
-됩니다.
+**The protagonist is not the game; it is the development trail.** The game does not need to be elaborate. The trail needs to be genuine.
 
-## 궤적을 보는 두 가지 방법
+## Two ways to explore the trail
 
-**읽기 (가입 불필요)** — 정적 페이지에서 이벤트·결정·인과를 그대로 읽습니다. 각 이벤트는
-그것을 구현한 커밋으로 링크됩니다.
+**Read without signing up** — browse a static view of events, decisions, and causal links. Each implementation event links to its Git commit.
 
-**물어보기 (AiAkiv 가입)** — 그래프에 직접 질문을 던집니다. **라이브 읽기전용**이라 개발이
-진행되는 대로 최신 궤적이 보이고, 방문자가 그래프를 수정할 수는 없습니다.
+**Ask with AiAkiv** — query the graph directly through a live read-only sample project. It follows development as it happens, while visitors cannot modify it.
 
-- "전투 시스템 설계가 지금까지 어떻게 바뀌었어?"
-- "적 AI 로직은 어떻게 구현됐어?" (설계·구현·리뷰를 각각 다른 AI가 했습니다)
-- "가장 최근 버그랑 그 원인이 뭐야?"
-- "인벤토리랑 세이브 포맷이 왜 같은 시점에 같이 바뀌었어?"
+- “How has the combat system design changed?”
+- “How was the enemy AI implemented?” (design, implementation, and review were performed by different AIs)
+- “What was the most recent bug, and what caused it?”
+- “Why did the inventory and save format change together?”
 
-키워드 검색으로는 마지막 두 질문에 답할 수 없습니다 — 버그 텍스트와 원인이 된 설계 결정
-텍스트에는 겹치는 단어가 없기 때문입니다.
+Keyword search cannot answer the last two questions: the text describing a bug and the earlier decision that caused it may share no words at all.
 
-## 게임
+## The game
 
-턴제 로그라이크. 절차 생성 던전 5층, permadeath, 적 3종 + 보스, 인벤토리.
-한 칸 이동 = HTTP 요청 1개 → 서버가 한 턴 진행 → JSON 상태 반환.
+Delve is a turn-based roguelike with five procedurally generated floors, permadeath, three enemy types plus a boss, and an inventory. Moving one tile sends one HTTP request; the server advances the turn and returns the new state as JSON.
 
-- **백엔드**: FastAPI + 순수 Python 게임 엔진 (엔진은 프레임워크를 import하지 않습니다)
-- **프론트**: 프레임워크 없는 단일 HTML. 처음엔 텍스트 그리드 (`@` 플레이어, `#` 벽)
-- **에셋 0개** — 로그라이크는 그래픽 없이 태어난 장르입니다
+- **Backend:** FastAPI and a pure-Python game engine. The engine imports no web framework.
+- **Frontend:** one framework-free HTML file with a text grid (`@` is the player and `#` is a wall).
+- **Zero art assets:** roguelikes were born without graphics.
 
-## 직접 돌려보기
+## Run locally
 
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
@@ -53,36 +44,30 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-→ http://127.0.0.1:8000
+Open http://127.0.0.1:8000.
 
-의존성은 FastAPI + uvicorn 둘뿐입니다. Node도, 번들러도, DB 서버도 필요 없습니다.
-이동은 방향키 또는 `hjkl`, **적이 있는 칸으로 이동하면 공격**입니다.
+The only runtime dependencies are FastAPI and Uvicorn. There is no Node.js, bundler, or database server. Move with the arrow keys or `hjkl`; moving into an enemy attacks it.
 
-같은 시드는 항상 같은 던전을 만듭니다 — 버그를 발견하면 시드를 함께 적어주세요.
-전체 실행 문서: **[docs/10_running.md](docs/10_running.md)**
+The same seed always produces the same dungeon. When reporting a bug, include the seed. See [docs/10_running.md](docs/10_running.md) for the full running guide.
 
-## 설계 문서
+## Design documents
 
-| 문서 | 내용 |
+| Document | Contents |
 |---|---|
-| [docs/00_overview.md](docs/00_overview.md) | 취지·성공 기준·원칙 |
-| [docs/01_demo_goals.md](docs/01_demo_goals.md) | 목표 심문 쿼리와 쿼리 역산 |
-| [docs/02_game_design.md](docs/02_game_design.md) | 게임 스펙 |
-| [docs/03_architecture.md](docs/03_architecture.md) | 아키텍처 |
-| [docs/04_turn_system_pivot.md](docs/04_turn_system_pivot.md) | 유일한 사전 설계 전환점 |
-| [docs/05_roadmap.md](docs/05_roadmap.md) | Phase 0~5 |
-| [docs/06_memory_protocol.md](docs/06_memory_protocol.md) | 저장 규약 |
-| [docs/07_github_provenance.md](docs/07_github_provenance.md) | 커밋 ↔ 이벤트 양방향 |
-| [docs/08_participants_workflow.md](docs/08_participants_workflow.md) | 참여자와 세션 운영 |
-| [docs/09_risks_checklist.md](docs/09_risks_checklist.md) | 리스크와 체크리스트 |
+| [docs/00_overview.md](docs/00_overview.md) | Purpose, success criteria, and principles |
+| [docs/01_demo_goals.md](docs/01_demo_goals.md) | Target interrogation queries and query-driven design |
+| [docs/02_game_design.md](docs/02_game_design.md) | Game specification |
+| [docs/03_architecture.md](docs/03_architecture.md) | Architecture |
+| [docs/04_turn_system_pivot.md](docs/04_turn_system_pivot.md) | The single preplanned architectural pivot |
+| [docs/05_roadmap.md](docs/05_roadmap.md) | Phases 0–5 |
+| [docs/06_memory_protocol.md](docs/06_memory_protocol.md) | Memory-writing protocol |
+| [docs/07_github_provenance.md](docs/07_github_provenance.md) | Bidirectional commit/event provenance |
+| [docs/08_participants_workflow.md](docs/08_participants_workflow.md) | Participants and session workflow |
+| [docs/09_risks_checklist.md](docs/09_risks_checklist.md) | Risks and checklists |
+| [docs/10_running.md](docs/10_running.md) | Local development and test guide |
 
-## 상태
+## Status
 
-**Phase 1 완료** — 코어 루프가 돕니다. 던전 5층, 이동/전투, Goblin, FOV, 레벨업,
-permadeath. 턴 처리는 **v1 즉시판정**입니다 — Phase 2에서 적 3종(속도 150/100/60)을
-넣으면 이 구조가 깨지고, 그때 에너지 스케줄러로 전환합니다.
-왜 그렇게 하는지는 [docs/04_turn_system_pivot.md](docs/04_turn_system_pivot.md)에.
+Development concluded after Phase 3 plus the UX pass. The project includes the v2 energy scheduler, three enemy behaviors, inventory and save-format v2, deterministic RNG stream isolation, balance v1→v2 rollback evidence, and mouse-plus-keyboard controls. Phase 4 save/load endpoints and Phase 5 public-history publishing remain intentionally unfinished and are documented as such.
 
-진행 상태의 단일 출처는 **[docs/05_roadmap.md](docs/05_roadmap.md)의 체크박스**입니다
-(+ AiAkiv 메모리). 별도의 PLAN/TODO 파일은 두지 않습니다 — 상태를 이중 관리하면
-어긋나고, "메모리가 계획 파일을 대체한다"는 이 프로젝트의 주장이 약해집니다.
+The single source of truth for progress is the checkbox list in [docs/05_roadmap.md](docs/05_roadmap.md), together with AiAkiv memory. There is no separate PLAN or TODO file: duplicating status would weaken the project’s central claim that memory can replace a conventional planning file.

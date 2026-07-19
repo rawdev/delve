@@ -1,288 +1,85 @@
-# 05. 로드맵 — Phase 0~5
+# 05. Roadmap — Phases 0–5
 
-> ## 📍 이 문서가 진행 상태의 단일 출처다
->
-> **별도의 PLAN.md / TODO 파일을 만들지 않는다.** 상태를 이중 관리하면 어긋나고,
-> "메모리가 계획 파일을 대체한다"는 이 프로젝트의 주장 자체가 약해진다.
->
-> 진행 상태 = **이 문서의 체크박스** + **AiAkiv 메모리**(`ak 지난 세션 뭐 했지?`).
-> README와 `00_overview.md`의 상태 서술은 여기를 가리킬 뿐 상태를 갖지 않는다.
->
-> **작업을 마치면 그 자리에서 체크박스를 채운다.**
->
-> **현재: Phase 3 완료.** Phase 2(턴 v2=**DQ1** · 인벤토리+세이브 포맷 v2=**BQ3** · 적 AI
-> cross-author=**IQ1·IQ2** · 버그 3건=**BQ1·BQ2** 재료)에 이어 **밸런스 사이클(DQ2)** 을 닫았다:
-> v1 → 플레이테스트(가설 반증) → 1층 Golem 롤백 → v2 → **RNG 결합 발견**(동일 시드 비교가
-> 통제 실험이 아니었다) → **RNG 스트림 분리**(@critic 설계 / @developer 구현) → 20 시드 A/B →
-> **v2 확정**. 게임 플레이 가능(5층, FOV, permadeath, 아이템, 속도 다른 적 3종). 111 tests.
-> 다음은 **Phase 4 — 세이브/로딩 + 버그 회상 시연 (승부처).**
->
-> **미결(별건):** 프론트 조작 UX — 사용자 리뷰 "너무 불편하다"(`evt_aea8a4ec`, 마우스/방향키 기대).
-> 밸런스와 분리된 사슬, **미착수**.
->
-> **참고:** `@critic`은 동료가 ChatGPT를 돌리는 계정이라 R3(ChatGPT)·R2(동료)를 함께
-> 충족한다 — 별도 콘솔 게이트 대기는 없다. Gemini는 리뷰하지 않으므로 제외.
+This checklist plus AiAkiv memory is the single source of truth. Do not create a separate PLAN or TODO file.
 
-집중 개발 기준 약 2~3주. **달력 기간이 부담이면 세션 밀도로 압축한다** — 그래프에
-중요한 건 기간이 아니라 **이벤트 수와 결정 밀도**다 (목표: 이벤트 80~120개, 결정 15개+).
+## Phase 0 — Setup — complete
 
-각 페이즈는 **코드 산출물**과 **저장할 이벤트**를 함께 정의한다. 코드만 나오고
-이벤트가 안 나온 페이즈는 완료가 아니다.
+- [x] Write `docs/00` through `docs/10` and the session-entry rules.
+- [x] Create the public repository: https://github.com/rawdev/delve.
+- [x] Add ignore rules and secret-free MCP configuration.
+- [x] Reserve links for play, code, static memory, and the sample project.
+- [x] Verify the isolated AiAkiv target.
+- [x] Confirm that unauthenticated public-read MCP does not exist; adopt static export plus a live read-only sample project.
+- [x] Verify cross-account writes and `@handle` retrieval through `@critic`.
+- [x] Record stack, pivot, protocol, and first-commit provenance events.
 
----
+## Phase 1 — Core loop — complete
 
-## Phase 0 — 셋업 (D0) — ✅ 완료
+Implementation order: RNG → state → dungeon → FOV → combat → one Goblin AI → v1 lockstep turns → FastAPI boundary → text frontend → deterministic tests.
 
-**문서 / 저장소** — ✅ 완료
-- [x] 설계 문서 세트 `docs/00`~`docs/10` 작성 (커밋 `229aaac`, `ff178e7`)
-- [x] `CLAUDE.md` — 세션 진입 규칙 (저장 규약·R4 경고·엔티티 사전·불변식)
-- [x] `git init` + GitHub 공개 저장소 생성 — https://github.com/rawdev/delve
-- [x] `.gitignore`, `.mcp.json` (시크릿 없음 — 공개 시 방문자가 그대로 연결 가능)
-- [x] README에 **4종** 링크 자리 확보 (플레이 / 코드 / 정적 메모리 / sample 프로젝트)
-      — R1 대응으로 메모리 링크가 정적·대화형 둘로 갈라졌다
-- [x] AiAkiv 저장 대상 확인 — **AiAkiv-Roguelike / AiAkivRogueLike** (본 계정 `k2g`와 분리)
-- [x] 엔티티 이름 정리 — `k2g-sample_game` → `Delve` 통일 (deprecated 처리)
+- [x] Establish seeded RNG and forbid global random calls.
+- [x] Build deterministic rooms, corridors, stairs, actors, and FOV.
+- [x] Implement deterministic combat and `ai.decide()`.
+- [x] Implement and commit v1 lockstep turns without speed or energy.
+- [x] Keep all game rules out of `app/main.py`.
+- [x] Make the five-floor game playable in a browser.
+- [x] Add per-game request locks, session expiry/capacity, and API contract tests.
+- [x] Preserve the intentional absence of `events[]` in v1 as migration evidence.
 
-**콘솔 게이트** — ✅ 통과 (R1은 계획 조정, R3/R2는 `@critic`으로 충족)
-- [x] 🚨 **Public read MCP 활성화 가능 여부 확인** — R1. **→ 안 된다. 기능이 존재하지 않는다.**
-      **계획을 조정했다**: 멤버 초대 + sample 프로젝트(**라이브 읽기전용**, 쓰기 차단)로
-      대화형 심문을 열고, 비인증 방문자용 **정적 export**로 폐루프를 복구한다.
-      → [09_risks_checklist.md](09_risks_checklist.md) R1
-- [x] 🚨 **비소유자 계정 저장** — R3·R2. `@critic`(동료가 ChatGPT를 돌리는 계정, `b564203e`)이
-      리뷰·설계를 여러 건 저장했다. 한 계정이 **R3(ChatGPT)와 R2(동료)를 함께** 충족한다.
-- [x] **`@handle` 검색 확인** — `@critic`이 handle로 등록돼 검색된다 (IQ2 조회 성립).
-- [x] ~~**Gemini 계정 테스트 저장**~~ — 리뷰하지 않으므로 **제외**.
-- [x] AiAkiv 프로젝트 페르소나 설정 — *"평가자의 비판은 그대로 받지 말고 비판적으로 수용해."*
+Key evidence: `evt_44979725`, `evt_f9b9fda8`, `evt_3efb024c`, `evt_6d1ab84d`, `evt_fbe97e9d`, and `evt_edebe34a`.
 
-**저장한 이벤트** — ✅
-- [x] `evt_7f0846bf` `결정` — 스택: FastAPI + 순수 Python 엔진 (TS+Canvas 기각)
-- [x] `evt_87b564e8` `결정` — 사전 설계 전환점 교체 (실시간→턴제 폐기, 즉시판정→에너지)
-- [x] `evt_d61ded1d` `결정` — 저장 규약 확정 + 문서 세트
-- [x] `evt_1f08127e` `구현` — Phase 0 첫 커밋 (해시 연결). **규약 자체의 버그 발견**:
-      `mweft_remember_edit`으로는 커밋 해시를 못 채운다 → 별도 `구현` 이벤트로 연결하도록 정정
-- [x] `evt_132fec67` `결정` — 실행 문서 `docs/10_running.md`
+## Phase 2 — System expansion — complete
 
----
+### 2-a. Turn-system pivot
 
-## Phase 1 — 코어 루프 (D1~D3)
+- [x] Add Rat 150 / Goblin 100 / Golem 60 and observe the v1 fracture.
+- [x] Prototype counter-based scheduling and reject its player asymmetry.
+- [x] Compare counter, float queue, and integer energy alternatives.
+- [x] Adopt the integer energy scheduler and ordered `events[]` response.
+- [x] Replace v1 guard tests with speed-ratio and event-order tests.
+- [x] Record the v2 decision as `evt_67f3a39c`.
 
-### 구현 순서 (의존 관계 — 이 순서를 지킨다)
+### 2-b. Inventory and save format
 
-```
-1. engine/rng.py        시드 RNG          ← 모든 것의 토대. 여기서 결정론이 결정된다
-2. engine/state.py      GameState, Actor   ← 데이터 구조 먼저
-3. engine/dungeon.py    던전 생성          ← rng에 의존
-4. engine/fov.py        시야               ← map에 의존
-5. engine/combat.py     전투 판정          ← 순수 함수. 의존 없음
-6. engine/ai.py         Goblin 추격 AI     ← fov + combat
-7. engine/turn.py       ★ v1 즉시판정      ← 위 전부를 엮는다
-8. app/main.py          FastAPI 경계       ← 게임 규칙 0줄
-9. static/index.html    텍스트 그리드
-10. tests/              결정론 테스트
-```
+- [x] Implement Potion, Sword, Shield, Recall Scroll, pickup/use/equip, and ten bag slots.
+- [x] Establish JSON save format v1 with version and RNG state.
+- [x] Migrate to v2 for inventory, equipment, and floor items.
+- [x] Add API/frontend support and round-trip tests.
+- [x] Record `evt_5c089dca` and `evt_d3557b15` using canonical AK identifiers.
 
-> **1번(`rng.py`)을 먼저 하는 이유**: 나중에 붙이면 이미 `random`을 직접 호출한 코드가
-> 곳곳에 생긴다. 그러면 시드 결정론이 조용히 깨지고, 버그 재현이 안 되고, BQ1·BQ2가
-> 죽는다. 불변식 3(`docs/03_architecture.md` §2)은 **첫 파일부터** 지켜야 한다.
+### 2-c. Cross-author enemy AI
 
-**코드 산출물** — ✅ 완료
-- [x] `engine/rng.py` — 시드 RNG. **`random` 전역 호출 금지 규칙 확립** (`6d78fb8`)
-- [x] `engine/state.py` — `GameState`, `Actor`, `Map`. **Actor에 speed/energy 없음**(의도적)
-- [x] `engine/dungeon.py` — 랜덤 방 배치 + L자 복도, 시드 결정론
-- [x] `engine/fov.py` — 반경 8 그림자 캐스팅, visible/explored 분리 (`84d6eca`)
-- [x] `engine/combat.py` — `dmg = max(1, atk - def)`. 무작위 없음 → Rng를 받지 않는다
-- [x] `engine/ai.py` — Goblin idle/chase/flee (**1종만**). `decide()`는 (dx,dy)만 돌려준다
-- [x] `engine/actions.py` — 이동 = 공격. InvalidAction은 턴을 소비하지 않는다
-- [x] `engine/turn.py` — **v1 즉시판정 (lockstep)** ★
-- [x] `app/main.py` + `app/schemas.py` + `app/store.py` — HTTP 경계만. 게임 규칙 0줄
-- [x] `static/index.html` — 텍스트 그리드, 빌드 도구 없음
-- [x] `requirements.txt` — fastapi, uvicorn[standard] (**둘뿐이다**)
-- [x] `tests/` — 44 passed. 결정론 · 도달 가능성 · **v1 가드 2종**
-- [x] **플레이 가능** — 브라우저에서 5층 하강·전투·사망 확인 (Phase 1 합격선)
-- [x] `docs/10_running.md`의 경고 블록 제거 — 명령이 실제로 동작함을 확인 후
+- [x] `@critic` designs the Rat/Goblin/Golem policy table (`evt_81fb3979`).
+- [x] `@developer` implements policies, dungeon placement, and tests.
+- [x] Review and fix runtime defects without changing the `ai.decide()` interface.
 
-**Phase 1이 남긴 것 (Phase 2 전환의 재료)**
-- v1 응답에 **`events[]` 배열이 없다** — v1은 "1입력 = 전원 1행동"이라 `log[]`로 충분.
-  v2에서 Rat이 연속 행동하면 순서가 필요해지고, 그때 API 계약이 바뀐다(전환 비용).
-- `tests/test_turn_v1.py::test_v1_every_enemy_acts_exactly_once` — **Phase 2 전환 시
-  이 테스트는 깨져야 한다.** 깨지는 것이 전환이 실제로 일어났다는 증거다.
+## Phase 3 — Balance cycle — complete
 
-**저장한 이벤트** — ✅ 7건
-- [x] `evt_44979725` `결정` — 던전 생성 알고리즘 (랜덤 방 배치 채택 / BSP 기각) → `6d78fb8`
-- [x] `evt_f9b9fda8` `구현` — 토대 (rng/state/dungeon). Actor에 speed/energy 없음 → `6d78fb8`
-- [x] `evt_3efb024c` `결정` ★ — **턴 처리 v1: 즉시판정 채택** (DQ1의 첫 고리) → `84d6eca`
-- [x] `evt_6d1ab84d` `구현` — FOV/전투/AI/turn v1 + 실패한 테스트 2건 기록 → `84d6eca`
-- [x] `evt_fbe97e9d` `구현` — FastAPI 경계 + 프론트. **`events[]` 의도적 부재** → `2dbc412`
-- [x] `evt_edebe34a` `회고` — Phase 1 완료. "미리 쓴 문서가 함정이 되는 것"을 세 번 막음
-- [x] `evt_d38f1dc8` `리뷰` — Phase 1 전체 점검. provenance·로드맵 동기화 결함 지적
+1. [x] Define floor composition v1 (`evt_4f6c50df`).
+2. [x] Run `@critic` playtest at seed `20260716`; observe lethal early Golem encounters (`evt_b48388fc`).
+3. [x] Choose the smallest rollback: remove only the floor-one Golem (`evt_a33581a1`).
+4. [x] Implement balance v2 in `83168b4` (`evt_5c7e7238`).
+5. [x] Reject the first same-seed comparison because shared RNG consumption changed items and later floors (`evt_5d80dac6`).
+6. [x] Design and implement independent layout/item/enemy child streams (`evt_5c9d0278`, `ede59e9`).
+7. [x] Run a controlled 20-seed A/B comparison (`evt_6f9a4028`).
+8. [x] Add mouse controls and action buttons after the “too uncomfortable” review; final user review became positive.
 
-> **`결정` — 엔진/프레임워크 분리 불변식은 별도 이벤트로 저장되지 않았다.**
-> `evt_7f0846bf`(스택 결정)에 이미 포함돼 있고 `docs/03_architecture.md`가 근거다.
-> 중복 저장하지 않는다.
+## Phase 4 — Save/load and bug-recall demonstration — unfinished
 
-> **Phase 1을 건너뛰고 v2로 직행하지 말 것.** → [04_turn_system_pivot.md](04_turn_system_pivot.md) §5
+- [ ] Replace the in-memory store with SQLite.
+- [ ] Add `/save` and `/load` endpoints.
+- [ ] Delete saves on permadeath.
+- [ ] Demonstrate memory-assisted diagnosis using only naturally occurring bugs.
+- [ ] Perform one focused refactor.
 
-### Phase 1 잔여 — 리뷰(`evt_d38f1dc8`)가 남긴 것
+## Phase 5 — Publication — unfinished
 
-- [x] **provenance 소급 복구** — 커밋 5개(`ff178e7`/`009ee4d`/`6d78fb8`/`84d6eca`/`2dbc412`)에
-      `ak:evt_` 역참조가 없다. rebase는 해시를 바꿔 **살아 있는 이벤트→커밋 링크를 죽이므로**
-      기각하고, 추가 전용 매핑표로 복구 → [07_github_provenance.md](07_github_provenance.md) §8
-- [x] **동일 `game_id` 동시 요청 직렬화** — **게임별 Lock** 채택 (전역 Lock은 서버를 한 줄로
-      세우므로 기각). 잠금이 없으면 `Rng`가 두 요청에 나뉘어 소비되어 **시드 결정론이
-      깨지고 BQ1·BQ2가 죽는다.** `app/store.py`
-- [x] **인메모리 세션 수명/용량 제한** — 최대 500, 유휴 1시간, **끝난 게임은 5분**.
-      로그인이 없어 누구나 게임을 만들 수 있으므로 이론적 위험이 아니다
-- [x] **HTTP/API 계약 테스트** — `tests/test_api.py` (19건). 404/409/422, 미탐색 타일·비가시
-      적 비노출, **동시성**. 총 63 tests
-- [x] untracked 로컬 설정 정리 — `.claude/settings.local.json`은 **ignore**(k2g 본체의 MCP
-      서버 id가 섞인다 → §5 공개 금지), `.codex/config.toml`·`AGENTS.md`는 **추적**
-      (시크릿 없음, cross-AI 참여의 전제 — R3/IQ1)
+- [ ] Save a final retrospective.
+- [ ] Run community/auto-tag analysis on real data.
+- [ ] Export the graph to static HTML and publish it.
+- [ ] Verify commit links from exported events.
+- [ ] Verify member onboarding and enforced read-only access to the sample project.
+- [ ] Run every target query against the graph and save the answers.
+- [ ] Cross-link play, GitHub, static memory, and the live sample project.
 
-> **동시성 테스트에서 한 번 속았다.** 처음엔 "N번 요청 → turn == N"으로 썼는데 **Lock을
-> 지워도 통과했다** — GIL 아래에서 경합 창이 너무 좁아 우연히 안 터진 것이다. 경쟁 조건은
-> 실재하는데 테스트가 못 잡는 상태였다. 지금은 **겹침 자체를 관측**한다.
-
----
-
-## Phase 2 — 시스템 확장 (D4~D8) — 데모의 밀도가 여기서 나온다
-
-### 2-a. 턴 시스템 전환 ★ (사전 설계된 유일한 통과 지점)
-
-- [x] 적 3종(Rat 150 / Goblin 100 / Golem 60) speed 추가 → **v1 파열 확인** (test_turn.py: 60>60) (`03f3757`)
-- [x] 대안 A(카운터 hack) 시도 — 적 비율 90/60/36은 맞으나 플레이어 비대칭으로 기각 (스크래치 실증)
-- [x] **에너지 스케줄러로 전환** (대안 A/B/C 비교 후 C 채택, 크리틱 발견 1 실행순서)
-- [x] `tests/test_turn.py` — 속도 비율 검증 (test_turn_v1.py 대체). 엔진 48 passed
-- [x] `events[]` 응답 배열 도입 — `POST /action` → `{view, events}` (GET은 `GameView` 유지),
-      FOV 필터(`_visible_events`), 프론트 순서 표시. **전체 69 passed** (fastapi 설치 후 test_api 포함)
-
-**저장한 이벤트**
-- [x] `evt_2ea44503` `리뷰 반영` — 크리틱 발견 3·4 문서 수정 + v1 파열 xfail 고정 → `03f3757`
-- [x] `evt_67f3a39c` `결정` ★ — **턴 처리 v2: 에너지 스케줄러 전환** (파열 / 대안 A·B·C와
-  기각 이유 / 전환 비용 / 커밋 해시) → **DQ1의 답**. 엔티티 **"턴 시스템"** 을 v1 결정
-  `evt_3efb024c`와 공유
-
-### 2-b. 인벤토리 + 세이브 포맷 (BQ3의 재료)
-
-- [x] `engine/items.py` — 포션/검/방패/스크롤, 슬롯 10. pickup/use/equip + 전투 반영. test_items 11건
-- [x] `engine/serialize.py` — 세이브 포맷 **v1**(JSON+version+rng_state). 라운드트립 5 tests. 엔티티 **"세이브 포맷"**
-- [x] 인벤토리 추가 → 세이브 포맷 **v2** (inventory/equipped/floor_items). API·프론트(g 줍기 / i 가방) 포함. 전체 93 passed
-
-**저장한 이벤트**
-- [x] `evt_5c089dca` `결정` — 세이브 포맷 v1 (엔티티: **`세이브 포맷`**, `전역 시드`)
-- [x] `evt_d3557b15` `구현` — 인벤토리 → 세이브 포맷 v2 (엔티티: `인벤토리`, **`세이브 포맷`**) → `02e09a6`
-  → 이 `구현`과 위 `결정`이 **`세이브 포맷`** 을 공유 = **BQ3 성립**
-
-### 2-c. 적 AI — cross-AI/cross-user 귀속 (IQ1·IQ2의 재료)
-
-**서로 다른 세션·계정에서 각각 저장한다.** `@critic`은 **동료가 ChatGPT를 돌리는 계정**이라
-ChatGPT↔Claude(IQ1)와 동료↔소유자(IQ2)를 한 principal로 함께 채운다. (Gemini는 리뷰하지
-않으므로 리뷰 다리는 뺐다.)
-
-| 단계 | 담당 | 저장 이벤트 | 엔티티 |
-|---|---|---|---|
-| 설계 | **ChatGPT (@critic, 동료)** | [x] `결정` `evt_81fb3979` — 종류별 도주 정책 테이블(대안 3종 기각) | `적 AI` |
-| 구현 | **Claude Code (@developer)** | [x] `구현` — `ai.py` 정책 + 던전 3종 배치 + `test_ai`. 커밋 연결 | `적 AI` |
-
-두 이벤트가 `적 AI`를 공유하고 작성자(@critic ≠ @developer)가 갈려 **IQ1·IQ2 성립.**
-(높음1 실제 배치·높음2 종류별 AI도 이 단계에서 함께 해소.)
-
-### 2-d. 동료 등판 (IQ2) — 2-c에 통합
-
-`@critic`이 곧 동료 계정이므로 별도 트랙이 아니다. 추가로 동료가 세이브/로딩 쪽 PR을
-낸다면 IQ2가 더 두꺼워진다 (선택).
-
----
-
-## Phase 3 — 밸런스 사이클 (D9~D11) — DQ2 — ✅ 완료
-
-**각 단계를 반드시 별도 이벤트로 저장한다.** 뭉쳐 쓰면 시간축이 안 생긴다.
-
-1. [x] `밸런스` `evt_4f6c50df` — 층별 적 조합 **v1** (rat 초반 압박 / golem 후반 비중). `FLOOR_PARAMS.enemies`
-2. [x] `밸런스` `evt_b48388fc` — **@critic 플레이테스트** (시드 20260716): 공격적 1층 40턴 사망 / 회피 3층 352턴 사망, Golem 피해 25. "4~5층만 위험" 가설 반증
-3. [x] `결정` `evt_a33581a1` — 롤백: **1층 Golem 제거** (한 변수만, 동일 시드 비교). 전역 하향/2~5층 축소/드롭 증가 기각
-4. [x] `밸런스` `evt_5c7e7238` — 수치 **v2**: 1층 `{rat:2, goblin:1}` → 커밋 `83168b4`
-5. [x] `밸런스` `evt_5d80dac6` — @critic v2 재시험: **판정 보류.** 적 1마리 제거가 RNG 소비량을
-   바꿔 아이템·후속 층까지 흔들어 **애초에 통제 실험이 아니었음**을 발견
-6. [x] `결정` `evt_5c9d0278` (**@critic 설계**) — **RNG 스트림 분리**: 층마다 layout/items/enemies를
-   root seed에서 파생, 생성 순서를 구조→아이템→적으로. @developer 구현
-7. [x] `밸런스` `evt_6f9a4028` — @critic **20 시드 A/B 통제 실험**(시드 40~59): v1 16/20 통과·사망1·
-   미통과3 vs v2 **20/20 통과**·사망0. 통과 평균 HP는 20.0 대 19.85로 **동일** → 완화가 아니라
-   **꼬리 위험(극단 사망·공간 통제·탐색 지연) 제거**. **v2 확정** (1층 `rat2/goblin1`).
-   Golem 스탯·2~5층 유지, 2층 이후 축소는 **보류**(1층 한정 실험이라 근거 없음)
-
-전부 엔티티 **`던전 생성`** 공유 → `temporal_flow`로 진화가 드러난다.
-
-> **별건(UX):** 사용자 조작 리뷰 "너무 불편하다"(`evt_aea8a4ec`) — 마우스/방향키 기대 vs 문자키.
-> 밸런스와 분리된 **프론트 UX**로 별도 사슬 처리 (방향키는 이미 작동, 마우스 이동 미구현).
-
----
-
-## Phase 4 — 세이브/로딩 + 버그 회상 시연 (D12~D14) — 승부처
-
-**코드 산출물**
-- [ ] `store.py` — dict → SQLite
-- [ ] `/api/game/{id}/save`, `/load`
-- [ ] permadeath (사망 시 세이브 삭제)
-- [ ] `tests/test_serialize.py` — 저장 → 로드 → 상태 동일 (**`rng_state` 포함**)
-- [ ] 리팩터링 1회
-
-**저장 규약 (이게 핵심)**
-- 이 페이즈에서 **나오는 모든 버그를 그때그때 "증상 + 근본 원인 링크"로 저장한다.**
-- 원인이 최근 커밋이면 그것대로, 과거 설계 결정까지 거슬러 올라가면 그때
-  **인과 도약이 저절로 드러난다** — 심은 게 아니라 발견된 것.
-
-**시연 장면 자체를 기록하기 (BQ1·BQ2의 실물)**
-과거 결정이 원인인 버그가 나오면, AI에게 실제로 시킨다:
-
-```
-ak 이 버그와 관련된 과거 결정 찾아줘
-```
-
-그래프가 과거 결정을 물어오는 **그 과정을 기록으로 남긴다.** 방문자가 재현할 수 있는
-실사례가 된다.
-
-> **버그를 심지 않으므로 어떤 버그가 시연 대상이 될지는 개발이 정한다.**
-> 나오면 대박, 안 나오면 없는 대로 정직. 억지로 만들지 않는다.
-
----
-
-## Phase 5 — 마감과 공개 (D15+)
-
-- [ ] `회고` 이벤트 저장 — 무엇을 배웠나, v1 결정들을 다시 본다면
-- [ ] **커뮤니티 분석 실행** — auto-tag 주제 묶음이 실데이터에서 어떻게 나오는지 확인
-      (투어 8단계의 실물)
-
-> **Public read 스위치는 없다(R1).** 공개는 두 경로를 각각 세우는 작업이다.
-
-**경로 A — 비인증 방문자 (정적)**
-- [ ] 그래프 → **정적 HTML export 스크립트** (이벤트 본문 + 엔티티 + 시간축)
-- [ ] GitHub Pages 배포
-- [ ] 이벤트의 커밋 해시가 GitHub 커밋으로 링크되는가 — **PQ의 정적판**
-
-**경로 B — 가입 유저 (대화형, 라이브 읽기전용)**
-- [ ] 멤버 초대 경로 확인 — 신규 가입자가 `AiAkivRogueLike`를 실제로 받는가
-- [ ] 🚨 **쓰기가 실제로 막혀 있는지 검증** — 열려 있으면 그래프가 낙서로 오염되고
-      DQ/IQ/BQ 쿼리가 전부 노이즈에 묻힌다
-- [ ] 다른 인증 계정에서 MCP read 동작 확인
-- [ ] [01_demo_goals.md](01_demo_goals.md)의 DQ1~PQ를 **그래프에 실제로 던져보고**
-      답이 나오는지 검수. 안 나오는 쿼리가 있으면 그건 저장 규약을 어긴 지점이다.
-
-**공통**
-- [ ] 배포 — 플레이 URL / GitHub / **정적 메모리** / **sample 프로젝트** — 4종 상호 링크
-- [ ] devlog 시리즈 — Phase당 1편, 각 글이 **정적 메모리 페이지**의 해당 지점으로 링크
-      (비인증도 열리므로 top-of-funnel이 성립한다)
-
----
-
-## 페이즈별 이벤트 밀도 목표
-
-| Phase | 결정 | 구현/버그/밸런스 | 누적 |
-|---|---|---|---|
-| 0 | 3 | 1 | ~4 |
-| 1 | 3~4 | 8~12 | ~20 |
-| 2 | 5~6 | 20~30 | ~55 |
-| 3 | 1~2 | 8~10 | ~70 |
-| 4 | 2~3 | 15~25 | ~95 |
-| 5 | 1 | 5 | **~100** |
-
-**결정 15개 이상, 이벤트 80~120개.** 이 표에 못 미치면 저장을 빼먹고 있는 것이다.
+Development intentionally concluded after Phase 3 plus the UX pass. Phases 4 and 5 remain honest, visible unfinished work.

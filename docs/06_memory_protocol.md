@@ -1,169 +1,77 @@
-# 06. 저장 규약 — 그래프 품질은 일관성이 결정한다
+# 06. Memory Protocol — Consistency Determines Graph Quality
 
-> **이 문서가 프로젝트의 진짜 승부처다.**
-> 게임 코드는 못 만들어도 복구되지만, 저장 규약을 어긴 이벤트는 나중에 고칠 수 없다.
-> [01_demo_goals.md](01_demo_goals.md)의 쿼리들은 전부 이 규약이 지켜졌다는 전제 위에서만
-> 답을 낸다.
+## 0. When to save
 
-## 0. 언제 저장하는가
+Write only after an explicit `ak`, `mweft`, or `memoryweft` request. Save at the moment a decision, implementation result, real bug, review, balance observation, or retrospective conclusion appears. Never batch events later: batching destroys chronology and author attribution.
 
-- **저장은 명시적 `ak` 발화가 있을 때만 일어난다.** 그냥 "기억해"는 저장이 아니다.
-- 저장 트리거가 되는 순간:
-  - 결정이 내려졌을 때 (대안을 검토하고 하나를 골랐을 때)
-  - 버그를 고쳤을 때
-  - 밸런스 수치를 바꿨을 때
-  - 리뷰를 했을 때
-  - 페이즈를 마쳤을 때 (회고)
-- **"나중에 몰아서 저장"은 금지.** 몰아 저장하면 시간축이 뭉개지고(DQ2 사망) 작성자
-  귀속이 한 사람에게 몰린다(IQ1·IQ2 사망).
+## 1. Decision-event contract
 
-## 1. 결정 이벤트 — 필수 4요소
+Every decision event contains:
 
-**넷 중 하나라도 빠지면 결정 이벤트로 카운트하지 않는다.**
+1. **What** was decided.
+2. **Why** it was chosen.
+3. **Alternatives and rejection reasons.**
+4. **Related commit hash**, plus a repository-relative document path when relevant.
 
-| 요소 | 설명 | 왜 필수인가 |
-|---|---|---|
-| **무엇을** | 무엇을 결정했나 | 검색이 걸리는 지점 |
-| **왜** | 왜 그렇게 했나 | git이 절대 못 보여주는 것 |
-| **고려한 대안과 기각 이유** | 검토했지만 버린 안 + 버린 이유 | **이 프로젝트의 존재 이유.** 프로젝트 페르소나가 강제한다 |
-| **관련 커밋 해시** | `abc1234` | PQ의 전제 |
-| **문서 경로** | `docs/04_turn_system_pivot.md` | 결정의 상세 근거가 문서에 있으면 repo 상대 경로를 함께 남긴다 |
+If the decision precedes the commit, save the decision immediately. After implementation, create a separate implementation event containing the hash; existing event prose cannot be retroactively filled in.
 
-**나쁜 예:** "턴 시스템을 에너지 방식으로 바꿨다."
-**좋은 예:**
+## 2. Bug-event contract
 
-```
-무엇을: 턴 처리를 즉시판정(lockstep)에서 에너지 스케줄러로 전환
-왜: 적 3종에 속도 차이(Rat 150 / Goblin 100 / Golem 60)를 도입하니
-    "1입력 = 전원 1행동" 구조로는 표현 자체가 불가능
-고려한 대안:
-  A. 즉시판정 유지 + 적별 누적 카운터 — 기각: 플레이어에게 가속/둔화를 걸 수 없고,
-     보스 각성(HP 50% → speed 150)이 특수 케이스 코드가 됨. 에너지 시스템을
-     잘못된 형태로 재발명하는 것.
-  B. 우선순위 큐(float 시간축) — 기각: 부동소수 누적 오차로 세이브/로드 후 행동
-     순서가 어긋날 수 있음. 결정론 규칙(docs/03_architecture.md §6)과 충돌.
-  C. 에너지 시스템(정수) — 채택: 정수라 직렬화·재현 완벽, 플레이어도 그냥 액터 하나,
-     보스 각성은 speed 필드 하나로 끝.
-전환 비용: turn.py 전면 재작성, Actor에 speed/energy 추가, 세이브 포맷 버전 상승,
-          API 응답에 events[] 배열 추가, 클라 렌더 수정
-커밋: def5678
-문서: docs/04_turn_system_pivot.md
-```
+Every real bug event contains:
 
-## 2. 버그 이벤트 — 필수 4요소 (BQ1·BQ2의 전부)
+1. **Symptom**, including a reproduction seed when available.
+2. **Root cause**, linked to the earlier event or decision that caused it.
+3. **Fix.**
+4. **Fix commit hash.**
 
-| 요소 | 설명 |
-|---|---|
-| **증상** | 무엇이 어떻게 잘못 보였나. 재현 시드가 있으면 반드시 포함 |
-| **근본 원인** | **원인이 된 과거 이벤트/결정으로의 링크** ★ |
-| **수정 방법** | 어떻게 고쳤나 |
-| **관련 커밋 해시** | |
+Never plant a bug. If a useful causal bug does not naturally occur, the correct answer is that none occurred.
 
-> **★ "근본 원인" 필드가 이 프로젝트의 승부처다.**
-> 버그를 고칠 때마다 "이게 왜 생겼지? 어떤 결정이 이걸 가능하게 했지?"를 한 번
-> 묻고 그 답을 링크한다. 이건 그냥 **좋은 디버깅 관행**이라 작위성이 0이고,
-> 어떤 버그가 나오든 그래프가 인과를 물어올 준비가 된다.
->
-> 원인이 "그냥 어제 커밋의 오타"면 그렇게 쓴다. 그것도 정직한 답이다.
-> 원인이 3주 전 설계 결정이면 **인과 도약이 저절로 드러난다** — 심은 게 아니라 발견된 것.
+## 3. One canonical name per entity
 
-**근본 원인 링크의 좋은 예:**
+The identifiers below are the only intentional Korean text retained in this English repository. They already anchor the historical AiAkiv graph, so translating them would silently create disconnected entities. Use the exact identifier in AK writes; use the English display name everywhere else.
 
-```
-증상: 세이브를 불러온 뒤 같은 층에서 아이템 스폰 위치가 원본과 다름 (seed=42, floor 2)
-근본 원인: 세이브 포맷 v1 결정(evt_xxx)에서 `seed`만 저장하고 `rng_state`를 빼먹음.
-          당시엔 "시드만 있으면 재현된다"고 판단했으나, RNG는 이미 N번 소비된
-          상태였으므로 시드만으로는 복원되지 않는다.
-수정: serialize.py에 rng_state 추가 → 세이브 포맷 v2. 구버전 세이브는 마이그레이션 없이 폐기.
-커밋: 9ab3c1d
-```
-*(위는 형식 예시다. 실제로 이 버그가 날지는 개발이 정한다 — 미리 심지 않는다.)*
+| Canonical AK identifier | English display name | Type | Code | Query |
+|---|---|---|---|---|
+| `턴 시스템` | Turn system | System | `engine/turn.py` | DQ1 |
+| `던전 생성` | Dungeon generation | System | `engine/dungeon.py` | DQ2 |
+| `적 AI` | Enemy AI | System | `engine/ai.py` | IQ1 |
+| `세이브 포맷` | Save format | Schema | `engine/serialize.py` | BQ3, IQ2 |
+| `인벤토리` | Inventory | System | `engine/items.py` | BQ3 |
+| `전역 시드` | Global seed | Concept | `engine/rng.py` | bug queries |
+| `전투` | Combat | System | `engine/combat.py` | DQ1 |
+| `시야` | Field of view | System | `engine/fov.py` | — |
+| `Delve` | Delve | Project | whole project | — |
+| `AiAkiv` | AiAkiv | Product | — | — |
 
-## 3. 엔티티 한 이름 원칙 ★★
+Do not substitute synonyms, translated forms, repository directory names, or implementation labels in AK entities. Update this table before introducing a new canonical entity.
 
-**같은 대상은 항상 같은 이름으로 부른다.** 이걸 어기면 [01_demo_goals.md](01_demo_goals.md)의
-쿼리가 **전부** 실패한다. 그래프 품질의 90%가 여기 걸려 있다.
+## 4. Tags
 
-### 표준 엔티티 사전 (이 목록에 없으면 새로 만들기 전에 이 문서를 갱신한다)
+Use two to four existing topic paths spanning different facets such as phase, component, and event type. Do not create tags from IDs, hashes, dates, or one-off wording. Tags aid retrieval; canonical entities carry the durable graph identity.
 
-| 엔티티 이름 | 타입 | 대상 코드 | 관련 쿼리 |
-|---|---|---|---|
-| **`턴 시스템`** | System | `engine/turn.py` | **DQ1** |
-| **`던전 생성`** | System | `engine/dungeon.py` | **DQ2** |
-| **`적 AI`** | System | `engine/ai.py` | **IQ1** |
-| **`세이브 포맷`** | Schema | `engine/serialize.py` | **BQ3, IQ2** |
-| **`인벤토리`** | System | `engine/items.py` | BQ3 |
-| **`전역 시드`** | Concept | `engine/rng.py` | BQ 후보 |
-| **`전투`** | System | `engine/combat.py` | DQ1 |
-| **`시야`** | System | `engine/fov.py` | |
-| **`Delve`** | Project | 프로젝트 전체 | |
-| **`AiAkiv`** | Product | | |
+## 5. Never publish or store
 
-**금지 사례:**
-- ❌ "턴 시스템" / "턴제 시스템" / "턴 스케줄러" / "turn system" 혼용
-- ❌ "세이브 포맷" / "직렬화 스키마" / "저장 형식" 혼용
-- ❌ "Delve" / "k2g-sample_game" 혼용 — **`k2g-sample_game`은 repo 디렉토리 이름일 뿐,
-  프로젝트 엔티티 이름은 항상 `Delve`다.** (2026-07-13에 실제로 두 이름이 갈렸던 것을
-  정리했다. `k2g-sample_game` 엔티티는 deprecated.)
-- ✅ 코드 주석·커밋 메시지·문서에서도 **같은 이름**을 쓴다. 자연히 일관성이 유지된다.
+- Real names; use aliases for colleagues.
+- API keys, tokens, secrets, credentials, or private URLs.
+- Cost or billing figures.
+- Unrelated conversation or information about the parent K2G project.
+- Any material that cannot safely appear in a public demonstration.
 
-> **이 사례 자체가 §3이 왜 필요한지 보여준다.** 두 이름이 갈린 상태로 놔뒀으면
-> "Delve 프로젝트 결정들"을 물었을 때 최초 취지 이벤트가 안 나왔을 것이다.
-> 에러는 안 난다 — 그냥 조용히 빠진다. 그래서 저장할 때마다 이 표를 봐야 한다.
+## 6. Long content
 
-> **엔티티 이름 = 코드 모듈**로 1:1 맞춰두면 "이 파일 왜 이렇게 됐어?"가 곧바로
-> 그래프 질의가 된다. → [03_architecture.md](03_architecture.md) §2
+Never truncate source material to fit a save. Split content above the service limit and chain chunks with `prev_event_id`.
 
-## 4. 태그
+## 7. Verify the target
 
-**분류 태그 (하나 필수)**: `결정` / `버그` / `밸런스` / `구현` / `리뷰` / `회고`
+Before the first save of a session, verify team `AiAkiv-Roguelike`, project `AiAkiv-roguelike`, domain `default`, and group `root`. Never allow Delve events to land in the parent `k2g` project.
 
-**시스템 태그 (해당되면 전부)**: `턴시스템` / `던전생성` / `적AI` / `세이브포맷` /
-`인벤토리` / `전투` / `시야` / `API` / `프론트` / `인프라`
+## 8. Per-save checklist
 
-**페이즈 태그**: `phase0` ~ `phase5`
-
-예: `["결정", "턴시스템", "전투", "phase2"]`
-
-## 5. 공개 금지 목록 (처음부터 안 넣으면 큐레이션 비용 0)
-
-**저장 전에 매번 확인한다:**
-
-- ❌ **실명** — 동료는 별칭으로만 부른다
-- ❌ **API 키 / 토큰 / 시크릿**
-- ❌ **비용·과금 수치** (AI 사용료, 인프라 비용 등)
-- ❌ **게임 외 잡담** — 사적 대화, 다른 프로젝트(K2G 본체) 이야기
-- ❌ **본 계정 `k2g` 프로젝트의 내부 정보** — 저장 대상이 `AiAkivRogueLike`인지
-      매번 확인 ([00_overview.md](00_overview.md))
-
-> **처음부터 공개 전제로 저장한다.** 나중에 걸러내려는 순간 큐레이션 비용이 생기고,
-> 그 비용이 무서워서 공개를 미루게 된다. 이 프로젝트의 최대 장점이 바로 이것 —
-> 실 프로젝트(K2G 본체)를 공개할 때와 달리 **지울 게 없다.**
-
-## 6. 긴 내용은 잘라내지 않는다
-
-내용이 길면 **자르지 말고 이어서 저장한다** (`prev_event_id` 체인). 요약해서 넣으면
-나중에 그 이벤트가 답이 되어야 할 때 정보가 없다.
-
-## 7. 저장 대상 확인 (매 세션 첫 저장 전)
-
-```
-ak target 확인
-```
-
-- Team **AiAkiv-Roguelike** / Project **AiAkivRogueLike** / domain `default` / group `root`
-- **본 계정 프로젝트 `k2g`로 저장되고 있지 않은지 반드시 확인.** 이게 섞이면 공개
-  전환 자체가 불가능해진다.
-
-## 8. 저장 체크리스트 (매번)
-
-```
-[ ] 저장 대상이 AiAkivRogueLike 인가?
-[ ] 결정이면 4요소(무엇/왜/대안과 기각 이유/커밋)가 전부 있는가?
-[ ] 버그면 4요소(증상/근본 원인 링크/수정/커밋)가 전부 있는가?
-[ ] 엔티티 이름이 §3 사전과 정확히 일치하는가?
-[ ] 태그: 분류 1개 + 시스템 + 페이즈
-[ ] 근거 문서가 있으면 repo 상대 경로(docs/xx.md)를 넣었는가?
-[ ] 공개 금지 목록(§5)에 걸리는 게 없는가?
-[ ] 내가 지금 저장하는 계정이 맞는 작성자인가? (동료·AI 귀속)
-```
+- Was saving explicitly requested with `ak` or an accepted synonym?
+- Is the actual author making the save?
+- Does a decision include all four elements?
+- Does a bug include symptom, root-cause link, fix, and commit?
+- Are canonical AK identifiers exact?
+- Are there at least two useful existing tags?
+- Is the target correct and the content safe to publish?
+- If this continues an earlier event, is `prev_event_id` set?

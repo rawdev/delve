@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Delve</title>
@@ -12,8 +12,8 @@
     display: flex; flex-direction: column; align-items: center; gap: 10px;
   }
   #map { font-size: 15px; line-height: 1.0; letter-spacing: 1px; white-space: pre; margin: 0;
-         cursor: crosshair; }        /* 타일을 클릭하면 그쪽으로 한 칸 */
-  .dark  { color: #2f3540; }               /* explored, 지금은 안 보임 */
+         cursor: crosshair; }        /* Click a tile to step one cell toward it. */
+  .dark  { color: #2f3540; }               /* Explored, but not currently visible. */
   .wall  { color: #6b7382; }
   .floor { color: #454c58; }
   .stair { color: #e8c46a; font-weight: bold; }
@@ -39,7 +39,7 @@
   }
   #controls button:hover:not(:disabled) { border-color: #7aa2f7; color: #e8e8ea; }
   #controls button:disabled { opacity: .35; cursor: default; }
-  #controls button.ready { border-color: #e8c46a; color: #e8c46a; }  /* 지금 할 수 있다 */
+  #controls button.ready { border-color: #e8c46a; color: #e8c46a; }  /* Available now. */
   #controls kbd { color: #7aa2f7; font: inherit; font-size: 11px; }
   #banner { font-size: 18px; font-weight: bold; min-height: 1.2em; }
   .dead { color: #e06c75; } .won { color: #7ee081; }
@@ -52,22 +52,22 @@
 <h1 style="font-size:16px;letter-spacing:3px;margin:0;color:#8b93a1">D E L V E</h1>
 
 <div id="hud">
-  <span>층 <b id="floor">-</b></span>
+  <span>Floor <b id="floor">-</b></span>
   <span>HP <b id="hp">-</b></span>
   <span>Lv <b id="lv">-</b></span>
   <span>XP <b id="xp">-</b></span>
-  <span>턴 <b id="turn">-</b></span>
-  <span>시드 <b id="seed">-</b></span>
+  <span>Turn <b id="turn">-</b></span>
+  <span>Seed <b id="seed">-</b></span>
 </div>
 
-<pre id="map">불러오는 중…</pre>
+<pre id="map">Loading…</pre>
 
 <div id="controls">
-  <button id="btnPick">줍기 <kbd>g</kbd></button>
-  <button id="btnDown">계단 <kbd>&gt;</kbd></button>
-  <button id="btnWait">대기 <kbd>.</kbd></button>
-  <button id="btnBag">가방 <kbd>i</kbd></button>
-  <button id="btnNew">새 게임 <kbd>r</kbd></button>
+  <button id="btnPick">Pick up <kbd>g</kbd></button>
+  <button id="btnDown">Descend <kbd>&gt;</kbd></button>
+  <button id="btnWait">Wait <kbd>.</kbd></button>
+  <button id="btnBag">Bag <kbd>i</kbd></button>
+  <button id="btnNew">New game <kbd>r</kbd></button>
 </div>
 
 <div id="banner"></div>
@@ -76,13 +76,13 @@
 <div id="inv"></div>
 
 <footer>
-  <b>타일을 클릭</b>하면 그쪽으로 한 칸 갑니다 (적이 있으면 공격) &nbsp;·&nbsp;
-  나머지 행동은 위 <b>버튼</b>으로.<br>
-  <span style="color:#454c58">단축키(선택): 이동 <b>방향키</b>/<b>hjkl</b>(+<b>yubn</b> 대각)
-  · 대기 <b>.</b> · 계단 <b>&gt;</b> · 줍기 <b>g</b> · 가방 <b>i</b> · 새 게임 <b>r</b>
-  · 가방 열고 <b>숫자</b>키로 사용/장착</span><br>
-  죽으면 처음부터 (permadeath).<br>
-  <span style="color:#454c58">이 게임의 개발 과정은 전부 공개 메모리로 남습니다.</span>
+  <b>Click a tile</b> to step toward it (or attack an enemy) &nbsp;·&nbsp;
+  Use the <b>buttons</b> for other actions.<br>
+  <span style="color:#454c58">Optional shortcuts: move with <b>arrow keys</b>/<b>hjkl</b>
+  (+<b>yubn</b> diagonally) · wait <b>.</b> · descend <b>&gt;</b> · pick up <b>g</b>
+  · bag <b>i</b> · new game <b>r</b> · use/equip with <b>number keys</b> while the bag is open</span><br>
+  Death starts a new run (permadeath).<br>
+  <span style="color:#454c58">The entire development trail is preserved in public memory.</span>
 </footer>
 
 <script>
@@ -92,8 +92,8 @@ const DIRS = {
   y: "northwest", u: "northeast", b: "southwest", n: "southeast",
 };
 
-// (dx, dy) → 방향 이름. 타일을 클릭하면 **그쪽으로 한 칸** 간다 — 경로탐색은 하지 않는다.
-// 벽이면 서버가 409로 거부하고 턴도 소비되지 않으므로 화면만 그대로다.
+// (dx, dy) to direction. Clicking moves exactly one cell; there is no pathfinding.
+// A wall returns 409 without consuming a turn, so the view stays unchanged.
 const STEP_DIR = {
   "0,-1": "north", "0,1": "south", "-1,0": "west", "1,0": "east",
   "-1,-1": "northwest", "1,-1": "northeast", "-1,1": "southwest", "1,1": "southeast",
@@ -109,7 +109,7 @@ async function post(url, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body ?? {}),
   });
-  if (res.status === 409) return null;          // 성립하지 않는 행동 — 턴 소비 없음
+  if (res.status === 409) return null;          // Invalid action; no turn consumed.
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -124,9 +124,9 @@ async function act(action) {
   if (busy || !game || game.status !== "playing") return;
   busy = true;
   try {
-    // v2: 응답이 { view, events }. events는 한 입력 사이 순서대로 일어난 일.
+    // v2 returns { view, events }; events preserve the order within one input.
     const res = await post(`/api/game/${game.game_id}/action`, action);
-    if (res) { game = res.view; renderEvents(res.events); render(); }  // null이면 무효 — 화면 그대로
+    if (res) { game = res.view; renderEvents(res.events); render(); }  // null means invalid; keep the view.
   } finally {
     busy = false;
   }
@@ -141,8 +141,8 @@ function render() {
   turn.textContent = g.turn;
   seed.textContent = g.seed;
 
-  // 바닥 아이템 → 액터 → 플레이어 순으로 얹는다 (겹치면 나중 것이 이긴다).
-  // 서버는 보이는 적·아이템만 보낸다.
+  // Draw floor items, actors, then the player; later layers win overlaps.
+  // The server sends only visible enemies and items.
   const grid = g.tiles.map(row => row.split(""));
   for (const it of g.floor_items) grid[it.y][it.x] = it.glyph;
   for (const a of g.actors) grid[a.y][a.x] = a.glyph;
@@ -163,14 +163,14 @@ function render() {
   map.innerHTML = html;
 
   log.innerHTML = g.log.map(line => `<div>${esc(line)}</div>`).join("");
-  log.scrollTop = log.scrollHeight;  // 최신 로그가 잘리지 않도록 항상 아래쪽을 보여준다.
+  log.scrollTop = log.scrollHeight;  // Keep the newest complete line visible.
   renderInv();
   renderControls();
 
   banner.className = g.status === "dead" ? "dead" : g.status === "won" ? "won" : "";
   banner.textContent =
-    g.status === "dead" ? "당신은 죽었다.  [r] 새 게임"
-    : g.status === "won" ? "던전을 빠져나왔다!  [r] 새 게임"
+    g.status === "dead" ? "You died.  [r] New game"
+    : g.status === "won" ? "You escaped the dungeon!  [r] New game"
     : "";
 }
 
@@ -179,7 +179,7 @@ function stepToward(tx, ty) {
   const p = game.player;
   const dx = Math.sign(tx - p.x);
   const dy = Math.sign(ty - p.y);
-  if (dx === 0 && dy === 0) { act({ type: "wait" }); return; }  // 제자리 클릭 = 대기
+  if (dx === 0 && dy === 0) { act({ type: "wait" }); return; }  // Clicking yourself means wait.
   act({ type: "move", dir: STEP_DIR[`${dx},${dy}`] });
 }
 
@@ -189,15 +189,15 @@ function toggleInv() {
 }
 
 function renderEvents(evs) {
-  // 한 입력 사이 순서대로 일어난 일. Rat(150)이 2번 행동하면 여기 두 번 나온다 — v2의 실물.
-  // (서버가 FOV로 필터링하므로 어둠 속 적의 이동은 오지 않는다.)
-  const LABEL = { move: "이동", attack: "공격", death: "처치", levelup: "레벨업", floor: "하강", win: "탈출" };
+  // Ordered events from one input. A Rat (150) acting twice appears twice here.
+  // The server filters by FOV, so movement in darkness is omitted.
+  const LABEL = { move: "move", attack: "attack", death: "kill", levelup: "level up", floor: "descend", win: "escape" };
   const parts = [];
   for (const e of evs) {
-    if (e.t === "wait") continue;                 // 대기는 노이즈라 생략
+    if (e.t === "wait") continue;                 // Omit noisy wait events.
     const who = e.actor === "player" ? "@" : (e.actor ? e.actor.split("#")[0] : "");
     parts.push(e.t === "attack"
-      ? `${who}▸공격${e.dmg != null ? " " + e.dmg : ""}`
+      ? `${who}▸attack${e.dmg != null ? " " + e.dmg : ""}`
       : `${who}▸${LABEL[e.t] || e.t}`.trim());
   }
   events.textContent = parts.join("    ");
@@ -205,14 +205,14 @@ function renderEvents(evs) {
 
 function renderInv() {
   const g = game;
-  const w = g.equipped.weapon ? g.equipped.weapon.name : "없음";
-  const a = g.equipped.armor ? g.equipped.armor.name : "없음";
-  let html = `<div>장착 — 무기 ${esc(w)} / 방어구 ${esc(a)}</div>`;
+  const w = g.equipped.weapon ? g.equipped.weapon.name : "none";
+  const a = g.equipped.armor ? g.equipped.armor.name : "none";
+  let html = `<div>Equipped — weapon ${esc(w)} / armor ${esc(a)}</div>`;
   html += g.inventory.length
     ? g.inventory
         .map((it, i) => `<div class="inv-item" data-idx="${i}">${i + 1}. ${esc(it.glyph)} ${esc(it.name)}</div>`)
         .join("")
-    : `<div style="color:#565e6b">가방이 비었다</div>`;
+    : `<div style="color:#565e6b">The bag is empty.</div>`;
   inv.innerHTML = html;
 }
 
@@ -222,27 +222,27 @@ function renderControls() {
   const onItem = g.floor_items.some(it => it.x === g.player.x && it.y === g.player.y);
   const onStairs = g.tiles[g.player.y][g.player.x] === ">";
 
-  // 지금 할 수 있는 것만 켠다 — 문자 키 계약을 미리 알 필요가 없게 (리뷰 evt_aea8a4ec).
-  // 플레이어 글리프가 발밑 아이템을 가리므로, '줍기'가 켜지는 것이 곧 그 발견이다.
+  // Enable only available actions so players do not need to know key bindings in advance.
+  // The player glyph covers an item underfoot; the enabled pickup button reveals it.
   btnPick.disabled = !playing || !onItem;
   btnPick.classList.toggle("ready", playing && onItem);
   btnDown.disabled = !playing || !onStairs;
   btnDown.classList.toggle("ready", playing && onStairs);
   btnWait.disabled = !playing;
-  btnBag.innerHTML = `가방${g.inventory.length ? " " + g.inventory.length : ""} <kbd>i</kbd>`;
+  btnBag.innerHTML = `Bag${g.inventory.length ? " " + g.inventory.length : ""} <kbd>i</kbd>`;
 }
 
 function applyItem(idx) {
   const it = game && game.inventory[idx];
   if (!it) return;
-  // 소비 아이템은 use, 장비는 equip — 클라이언트가 kind로 판단한다.
+  // Consumables use the use action; equipment uses equip, selected by kind.
   const type = (it.kind === "potion" || it.kind === "scroll") ? "use" : "equip";
   act({ type, item_id: it.id });
 }
 
 function cls(ch, visible, enemyGlyphs, itemGlyphs) {
   if (ch === "@") return "you";
-  if (!visible) return "dark";                  // 기억 — 적·아이템은 여기 안 그려진다
+  if (!visible) return "dark";                  // Memory; enemies and items are not drawn here.
   if (enemyGlyphs.has(ch)) return "enemy";
   if (itemGlyphs.has(ch)) return "item";
   if (ch === "#") return "wall";
@@ -253,8 +253,8 @@ function cls(ch, visible, enemyGlyphs, itemGlyphs) {
 
 const esc = s => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
-// 마우스 — 타일 클릭으로 이동/공격, 인벤토리 항목 클릭으로 사용/장착, 버튼으로 행동.
-// 키보드 단축키는 그대로 두고 '고급 조작'으로 남긴다 (리뷰 evt_aea8a4ec의 수정 후보).
+// Mouse: click tiles to move/attack, inventory rows to use/equip, and buttons for actions.
+// Keyboard shortcuts remain as optional advanced controls.
 map.addEventListener("click", e => {
   const cell = e.target.closest("span[data-x]");
   if (cell) stepToward(Number(cell.dataset.x), Number(cell.dataset.y));

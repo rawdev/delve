@@ -1,134 +1,111 @@
-# AGENTS.md — 세션 진입 규칙 (Codex / ChatGPT)
+# AGENTS.md — Session Entry Rules
 
-> ⚠️ **이 파일은 [CLAUDE.md](CLAUDE.md)와 내용이 같아야 한다.** 도구가 각자 자기 파일만
-> 읽기 때문에 둘 다 필요하지만, **한쪽만 고치면 다른 AI가 옛 규약으로 저장한다.**
-> 특히 아래 **표준 엔티티 사전**이 어긋나면 같은 대상을 다른 이름으로 부르게 되고,
-> 그러면 쿼리가 **에러 없이 조용히** 실패한다 (docs/09 R6).
->
-> **한쪽을 고쳤으면 반드시 다른 쪽도 고친다.** 규약의 원본은
-> [docs/06_memory_protocol.md](docs/06_memory_protocol.md)다 — 충돌하면 그쪽이 이긴다.
+> **This file and [CLAUDE.md](CLAUDE.md) must stay identical.** Each tool reads only
+> its own entry file. If one changes without the other, agents may write using stale
+> conventions. [docs/06_memory_protocol.md](docs/06_memory_protocol.md) is authoritative.
 
-**Delve** — 웹 턴제 로그라이크. **하지만 주인공은 게임이 아니라 개발 궤적이다.**
-이 저장소의 목적은 개발 과정 전체를 AiAkiv 메모리로 남겨, 방문자가 "왜 그렇게
-했는지"를 그래프에 직접 물어볼 수 있게 하는 것이다.
+**Delve** is a turn-based web roguelike, but the development trail—not the game—is
+the protagonist. The repository preserves real decisions, alternatives, bugs, and
+implementation provenance in AiAkiv.
 
-→ 전체 맥락: [docs/00_overview.md](docs/00_overview.md)
+See [docs/00_overview.md](docs/00_overview.md) for the full context.
 
----
+## At the start of every session
 
-## 매 세션 시작 시 (순서대로)
+1. Check the active AK target; it must be `AiAkiv-roguelike`, never the parent `k2g` project.
+2. Ask AK what happened in the previous session.
+3. Read [docs/05_roadmap.md](docs/05_roadmap.md).
 
-```
-1. ak target 확인            → AiAkivRogueLike 인지 확인 (k2g로 저장되면 안 된다)
-2. ak 지난 세션 뭐 했지?      → 진행 상태 회수. 이게 이 프로젝트의 상태 저장소다.
-3. docs/05_roadmap.md 확인    → 체크박스로 남은 작업 확인
-```
+The roadmap checkboxes plus AiAkiv memory are the single source of truth. Do not
+create a separate PLAN or TODO file.
 
-> **진행 상태의 단일 출처는 `docs/05_roadmap.md`의 체크박스 + AiAkiv 메모리다.**
-> 별도의 PLAN.md나 TODO 파일을 만들지 말 것 — 상태가 이중화되면 어긋나고,
-> "메모리가 계획 파일을 대체한다"는 이 프로젝트의 주장 자체가 약해진다.
+## At the end of every session
 
-## 매 세션 종료 시
+1. Check the save checklist in [docs/06_memory_protocol.md](docs/06_memory_protocol.md).
+2. Confirm each implementation event contains its commit hash and each commit points back.
+3. Update roadmap checkboxes.
 
-```
-1. 이번 세션의 결정이 전부 저장됐는가?     (docs/06_memory_protocol.md §8 체크리스트)
-2. 커밋 해시가 이벤트에 연결됐는가?         (docs/07_github_provenance.md)
-3. docs/05_roadmap.md 체크박스를 채웠는가?
-```
+## Three absolute prohibitions
 
----
+### 1. Do not skip directly to turn system v2
 
-## 절대 어기면 안 되는 것 3가지
+Phase 1 had to implement, commit, and ship playable v1 lockstep turns. Only after
+the three unequal enemy speeds exposed the real limitation could Phase 2 adopt the
+energy scheduler. Skipping this would destroy DQ1's genuine decision chain.
 
-### 1. 🚨 Phase 1에서 턴 시스템 v2로 직행하지 말 것
+### 2. Never plant a bug
 
-`docs/04_turn_system_pivot.md`에 에너지 스케줄러 설계가 이미 적혀 있다. **그렇다고
-Phase 1에서 그걸 구현하면 안 된다.**
+Record every naturally occurring bug with symptom, reproduction seed, linked root
+cause, fix, and commit. Manufacturing a bug would invalidate the demonstration.
 
-- Phase 1은 **v1 즉시판정(lockstep)** 으로 구현하고 **실제로 커밋하고 플레이 가능하게**
-  만든다.
-- Phase 2에서 적 3종(속도 150/100/60)을 넣다가 **실제로 막히는 것을 확인한 뒤**
-  전환한다.
-- 건너뛰면 그래프에 결정 사슬이 아니라 결정 하나만 남고 **DQ1이 죽는다.**
-  → `docs/09_risks_checklist.md` R4
+### 3. Never drift canonical AK identifiers
 
-**미리 쓴 문서가 함정이 되는 지점이다. 문서를 안다고 미래를 앞당기지 말 것.**
+The only intentional Korean text retained in this English repository is the
+historical AK identifier column below. Existing graph events already use these
+exact names; translating them would silently create disconnected entities.
 
-### 2. 🚨 버그를 심지 말 것
+| Canonical AK identifier | English display name | Code |
+|---|---|---|
+| `턴 시스템` | Turn system | `engine/turn.py` |
+| `던전 생성` | Dungeon generation | `engine/dungeon.py` |
+| `적 AI` | Enemy AI | `engine/ai.py` |
+| `세이브 포맷` | Save format | `engine/serialize.py` |
+| `인벤토리` | Inventory | `engine/items.py` |
+| `전역 시드` | Global seed | `engine/rng.py` |
+| `전투` | Combat | `engine/combat.py` |
+| `시야` | Field of view | `engine/fov.py` |
+| `Delve` | Delve project | whole repository |
 
-특정 버그를 심고 거기 맞는 쿼리를 만드는 순간 데모 전체의 정직성이 무너진다.
-대신 **나오는 모든 버그를 규약대로 저장**한다: 증상(재현 시드 포함) / **근본 원인 =
-원인이 된 과거 이벤트·결정 링크** / 수정 방법 / 커밋 해시.
+Use English display names in prose and UI. Use the exact canonical value only when
+writing AK entities. See [docs/06_memory_protocol.md](docs/06_memory_protocol.md).
 
-### 3. 🚨 엔티티 이름을 흔들지 말 것
+## Memory protocol summary
 
-같은 대상은 **항상 같은 이름**으로 부른다. 어기면 쿼리가 **에러 없이 조용히** 실패한다.
+Save only after an explicit `ak`, `mweft`, or `memoryweft` request, and save when
+the event occurs rather than batching later.
 
-| 엔티티 | 코드 |
-|---|---|
-| `턴 시스템` | `engine/turn.py` |
-| `던전 생성` | `engine/dungeon.py` |
-| `적 AI` | `engine/ai.py` |
-| `세이브 포맷` | `engine/serialize.py` |
-| `인벤토리` | `engine/items.py` |
-| `전역 시드` | `engine/rng.py` |
-| `전투` | `engine/combat.py` |
-| `시야` | `engine/fov.py` |
-| `Delve` | 프로젝트 (❌ `k2g-sample_game`은 폴더 이름일 뿐) |
+A decision records: what, why, alternatives and rejection reasons, and commit hash
+(plus a document path when relevant).
 
-→ 전체 규약: `docs/06_memory_protocol.md`
+A bug records: symptom, linked root cause, fix, and commit hash.
 
----
+If design precedes implementation, save the design immediately and create a
+separate implementation event after committing. Never store real names, secrets,
+costs, unrelated conversation, or parent-project information.
 
-## 저장 규약 요약
+## Commit convention
 
-**`ak` 발화가 있을 때만 저장한다.** 그리고 **결정이 나온 그 순간** 저장한다 —
-몰아서 저장하면 시간축(DQ2)과 작성자 귀속(IQ1/IQ2)이 동시에 죽는다.
+```text
+<type>: <summary>
 
-- **결정 이벤트 4요소**: 무엇을 / 왜 / **고려한 대안과 기각 이유** / 커밋 해시 (+ `docs/` 경로)
-- **버그 이벤트 4요소**: 증상 / **근본 원인 링크** / 수정 / 커밋 해시
-- **커밋 해시는 나중에 못 채운다** — `mweft_remember_edit`은 엔티티·태그만 고친다.
-  결정이 커밋보다 먼저면, 커밋 후 **별도 `구현` 이벤트**로 해시를 연결한다.
-- **공개 금지**: 실명 / 키·토큰 / 비용 수치 / 게임 외 잡담 / k2g 본체 정보
+<body explaining why>
 
-## 커밋 규약
-
-```
-<타입>: <요약>
-
-<본문 — 왜 그렇게 했는지>
-
-ak:evt_<이벤트 id>
+ak:evt_<event id>
 docs: docs/xx.md
 
-Co-Authored-By: Codex Opus 4.8 (1M context) <noreply@anthropic.com>
+Co-Authored-By: <AI name> <noreply address>
 ```
 
-→ `docs/07_github_provenance.md`
+See [docs/07_github_provenance.md](docs/07_github_provenance.md).
 
----
+## Architecture invariants
 
-## 아키텍처 불변식 (코드를 짤 때)
+1. `engine/` imports neither FastAPI nor Pydantic.
+2. `app/main.py` contains no game rules.
+3. Every random choice flows through `engine/rng.py`; never call the global
+   `random` module directly.
 
-1. **`engine/`은 `fastapi`/`pydantic`을 import하지 않는다.** 순수 Python + 표준 라이브러리만.
-2. **`app/main.py`에 게임 규칙이 한 줄도 없다.** 요청 파싱 → 엔진 호출 → 응답 직렬화.
-3. **모든 무작위성은 `engine/rng.py`를 거친다.** `random` 전역 모듈 직접 호출 금지 —
-   이걸 어기면 시드 결정론이 깨지고, 결정론이 깨지면 버그 재현이 안 되고, 재현이 안 되면
-   버그 이벤트를 규약대로 저장할 수 없다. **BQ1·BQ2가 여기 걸려 있다.**
+## Scope boundary
 
-→ `docs/03_architecture.md`
+Do not add status effects, magic, ranged combat, multiplayer, accounts, rankings,
+an asset pipeline, more than five floors, or more enemy types. The game only needs
+to be real enough to generate an honest development trail.
 
-## 스코프 방어선
-
-게임을 재밌게 만들려는 충동이 가장 위험하다. **게임은 재밌을 필요가 없다. 궤적이 진짜면
-된다.** 상태이상·마법·원거리·멀티플레이·타일셋·6층 이상은 전부 비목표다.
-→ `docs/02_game_design.md` §8
-
-## 실행
+## Run
 
 ```bash
-uvicorn app.main:app --reload   # → http://127.0.0.1:8000
-pytest                          # 엔진은 HTTP 없이 테스트한다
+uvicorn app.main:app --reload
+pytest
 ```
 
-→ `docs/10_running.md`
+Open http://127.0.0.1:8000.

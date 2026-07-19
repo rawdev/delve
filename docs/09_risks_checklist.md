@@ -1,197 +1,70 @@
-# 09. 리스크와 체크리스트
+# 09. Risks and Checklists
 
-## 1. 프로젝트를 죽일 수 있는 리스크 (심각도 순)
+## 1. Risks
 
-### ✅ R1. Public read MCP가 안 열린다 — **실현됨 (2026-07-14). 대응 확정.**
+### R1. No unauthenticated public-read MCP — realized
 
-> **이 리스크는 현실이 됐다.** 비인증 방문자에게 그래프를 여는 기능은 **존재하지 않는다.**
-> Phase 0에서 확인하기로 한 것을 Phase 1이 끝난 뒤에야 확인했다 — 늦었지만, 로드맵이
-> 경고한 "3주를 날린다"는 피했다. 아래는 예측이 아니라 **실제로 일어난 일과 그 대응**이다.
+The product has no feature that exposes the live graph to anonymous visitors. Adopted model:
 
-**원래 예상한 영향**: 방문자가 MCP로 그래프에 질문을 던질 수 없다 → 데모가 웹 화면 전용으로
-반감된다. "직접 물어보세요" CTA 자체가 성립하지 않는다.
+| Audience | Access |
+|---|---|
+| Anonymous visitor | Static HTML export for reading the development trail |
+| AiAkiv user | Membership in a live, read-only Delve sample project |
 
-**실제 영향은 그보다 작았다.** 접근이 *불가능*해진 게 아니라 **가입 뒤로 밀렸을 뿐**이다.
+This also solves the empty-account onboarding problem: new users can interrogate a meaningful sample immediately. Remaining cost is the unfinished Phase 5 static exporter and four-way public linking.
 
-#### 확정된 접근 모델
+### R2. No colleague
 
-| 대상 | 볼 수 있는 것 | 방식 |
-|---|---|---|
-| **비인증 방문자** | "왜"를 **읽을 수** 있다 | 정적 export (GitHub Pages) |
-| **AiAkiv 가입 유저** | 그래프를 **심문할 수** 있다 | 멤버 초대 + sample 프로젝트, **라이브 읽기전용** |
+Without a separately attributed contributor, IQ2 fails. Secure a colleague or a genuine alternate-account session before relying on cross-user claims.
 
-- **라이브 공유**다 — 스냅샷 복사본이 아니다. 개발이 진행되면 방문자가 최신 궤적을 본다.
-  "살아 있는 궤적"이라는 주장이 유지된다.
-- **쓰기는 강제로 막힌다** — 멤버가 낙서를 못 쌓는다. 그래프 오염 없음.
-  (열려 있었다면 공개 직후 DQ/IQ/BQ 쿼리가 전부 노이즈에 묻혔을 것이다.)
+### R3. Cross-client saves miss the project
 
-#### 이게 오히려 §5의 빚을 갚는다
+If ChatGPT or another client writes elsewhere, IQ1 attribution disappears. Verify the active target and make one test save from every participating account during setup.
 
-§5는 원래 "빈 계정 문제 — 신규 사용자는 기억이 1개뿐인 그래프를 본다. 투어에서 이 공개
-프로젝트를 심문하는 단계를 넣자"고 적어뒀다. **신규 가입자에게 주는 sample 프로젝트가
-바로 그것이다.** 공개 메커니즘과 온보딩 메커니즘이 **같은 것이 됐다.** 우회로가 원래 목표를
-더 정확히 맞췄다.
+### R4. Skipping the real pivot
 
-퍼널도 자연스러워진다:
-```
-정적 페이지에서 "왜"를 읽는다  →  "직접 물어보려면?"  →  가입  →  sample 프로젝트로 심문
-    (비인증, 이탈 없음)              (CTA)                        (그래프가 살아있는 채로)
-```
+Implementing v2 directly would erase DQ1. Phase 1 therefore had to ship playable v1 lockstep before unequal speeds created the real constraint.
 
-#### 남은 비용
+### R5. Batch-saving history
 
-- 정적 export 스크립트를 만들어야 한다 (Phase 5). 스코프 증가지만 **R7보다 폐루프가 중요하다** —
-  README의 메모리 링크가 로그인 벽이면 방문자는 클릭하고 이탈한다.
-- `docs/07_github_provenance.md` §5의 3종 링크가 **4종**이 된다 (정적 / 대화형 분리).
+Bulk retrospectives collapse chronology and attribution. Save each decision, review, and result at the moment it occurs.
 
-#### 교훈 (기록용)
+### R6. Canonical identifier drift
 
-**Phase 0 게이트를 실제로 통과시키지 않고 Phase 1을 시작했다.** 로드맵에 "가장 먼저"라고
-써두고도 코드부터 짰다. 결과적으로 손해는 작았지만(대응이 존재했으므로), 이건 운이었다.
-게이트가 게이트로 기능하려면 **통과 전에는 다음 단계를 시작하지 않아야** 한다.
+Synonyms create disconnected graph nodes without an error. Always use the compatibility table in [06_memory_protocol.md](06_memory_protocol.md).
 
-### 🚨 R2. 동료를 확보하지 못한다
+### R7. Scope growth
 
-- **영향**: **IQ2 사망.** cross-user 시연 불가 → "여러 사람이 함께 쌓는 공유 메모리"
-  포지셔닝이 그래프에서 안 보인다. **데모의 존재 이유의 절반이 없어진다.**
-- **대응**: 지인이 안 되면 **부계정 + 별칭**. 콘솔 팀 관리에서 별칭 설정.
-  → [08_participants_workflow.md](08_participants_workflow.md) §2
-- **마감**: Phase 2 시작 전(D4)까지 확보. 그 전에 안 되면 부계정으로 확정한다.
+Trying to make the game broadly entertaining can turn a short evidence project into a long game project. Return to the explicit non-goals in [02_game_design.md](02_game_design.md).
 
-### ⚠️ R3. ChatGPT / Gemini에서 같은 프로젝트로 저장이 안 된다
+### R8. No “good” causal bug
 
-- **영향**: **IQ1 사망.** cross-AI 귀속이 그래프에 없다.
-- **대응**: **Phase 0에서 각 계정으로 테스트 저장을 1건씩 해본다.** (playbook 웹 앱
-  레시피 검증을 겸함.)
-- **부분 대응**: Gemini는 선택 참여자다. 최소 ChatGPT + Claude Code 2종이면 IQ1은 산다.
+Accept this outcome. BQ2 is allowed to return no example. Planting a bug would invalidate the entire demonstration.
 
-### ⚠️ R4. 전환점을 실제로 겪지 않고 건너뛴다
+### R9. Schedule pressure
 
-- **영향**: **DQ1 사망.** [04_turn_system_pivot.md](04_turn_system_pivot.md)를 미리
-  써 뒀다는 이유로 Phase 1에서 바로 에너지 시스템을 짜면, 그래프에 결정 사슬이 아니라
-  결정 하나만 남는다. **미리 문서를 쓴 것이 오히려 함정이 된다.**
-- **대응**: Phase 1의 합격선은 **"v1 즉시판정으로 플레이 가능한 게임을 커밋했다"** 이다.
-  v2 코드가 Phase 1에 들어오면 Phase 1은 실패다.
-  → [04_turn_system_pivot.md](04_turn_system_pivot.md) §5
+Compress session density, not the honesty of the timeline. Distinct events and commits matter more than calendar length.
 
-### ⚠️ R5. 저장을 몰아서 한다
+## 2. Phase gate checklist
 
-- **영향**: DQ2(시간축 뭉개짐) + IQ1·IQ2(작성자 귀속 몰림) 동시 사망.
-- **대응**: **결정이 나온 그 순간 저장한다.** "나중에 정리해서 저장"은 금지.
-  → [06_memory_protocol.md](06_memory_protocol.md) §0
+- [x] Is the repository public and free of secrets?
+- [x] Is the AiAkiv target isolated from the parent project?
+- [x] Can every participating account save and be retrieved by attribution?
+- [x] Are canonical identifiers documented?
+- [x] Was v1 genuinely implemented before v2?
+- [x] Are decisions and commits linked both ways?
+- [x] Are real bugs recorded with root causes rather than planted?
 
-### ⚠️ R6. 엔티티 이름이 흔들린다
+## 3. Publication checklist — unfinished Phase 5
 
-- **영향**: "턴 시스템" / "턴제 시스템" / "턴 스케줄러"를 섞어 쓰면 DQ1의 두 이벤트가
-  연결되지 않는다. **모든 쿼리가 조용히 실패한다** — 에러도 안 난다.
-- **대응**: [06_memory_protocol.md](06_memory_protocol.md) §3의 표준 엔티티 사전을
-  저장 전에 매번 본다. 코드 모듈명·커밋 메시지·문서에서도 같은 이름을 쓴다.
+- [ ] Scan the repository and memory for names, secrets, costs, and unrelated material.
+- [ ] Export only the intended Delve graph to static HTML.
+- [ ] Verify anonymous access to the static trail.
+- [ ] Verify read-only enforcement for sample-project members.
+- [ ] Verify the target queries against the live graph.
+- [ ] Verify every displayed commit link.
+- [ ] Cross-link play, source, static memory, and interactive sample.
 
-### ⚠️ R7. 스코프가 늘어난다
+## 4. Onboarding loop
 
-- **영향**: 2~3주가 3개월이 되고, 프로젝트가 죽는다. 게임을 재밌게 만들고 싶은 유혹이
-  가장 위험하다.
-- **대응**: [02_game_design.md](02_game_design.md) §8의 **명시적 비목표**로 돌아온다.
-  **게임은 재밌을 필요가 없다. 궤적이 진짜면 된다.**
-
-### ℹ️ R8. 버그가 "충분히 좋게" 안 나온다
-
-- **영향**: BQ2(과거 설계 결정이 원인인 버그)의 시연 대상이 안 생길 수 있다.
-- **대응**: **없다. 그리고 없어도 된다.**
-  - 버그를 심으면 그 순간 데모 전체의 정직성이 무너진다. **절대 심지 않는다.**
-  - BQ1은 어떤 버그가 나오든 답이 된다 — 저장 규약만 지키면 자동 성립.
-  - BQ2가 빈손이면 **"이번엔 그런 케이스가 없었다"고 정직하게 말한다.** 그게 오히려
-    데모의 신뢰도를 올린다.
-- **다만**: 규약(증상 + 근본 원인 링크)을 예외 없이 지키면, 실개발에서 이런 케이스는
-  자연히 몇 개 생긴다. 확률을 높이는 유일한 정직한 방법은 **규약을 잘 지키는 것**뿐이다.
-
-### ℹ️ R9. 일정 압박
-
-- **대응**: 달력 2~3주가 부담이면 **세션 밀도로 압축한다.** 그래프에 중요한 건 기간이
-  아니라 **이벤트 수와 결정 밀도**다 (목표: 이벤트 80~120개, 결정 15개+).
-
----
-
-## 2. Phase 0 체크리스트 (개발 시작 전 — 전부 통과해야 D1로 간다)
-
-```
-[x] AiAkiv: 팀 AiAkiv-Roguelike / 프로젝트 AiAkivRogueLike 확인 (ak target 확인)
-[x] 본 계정 k2g와 완전 분리되어 있는가?
-[ ] 프로젝트 페르소나 설정: "결정에는 반드시 고려한 대안과 기각 이유를 함께 저장"
-[x] ★ Public read MCP 활성화 가능 여부 확인 (R1)  → **안 된다. 기능이 없다.**
-    대응 확정: 멤버 초대 + sample 프로젝트(라이브 읽기전용) + 비인증용 정적 export.
-    → R1 항목 참조. **게이트 통과.**
-[ ] ★ ChatGPT 계정에서 AiAkivRogueLike로 테스트 저장 1건 (R3)
-[ ] ★ Gemini 계정에서 테스트 저장 1건 (선택, R3)
-[ ] ★ 동료 계정 확보 + 별칭 설정 (R2)
-[ ] 동료 계정에서 테스트 저장 1건 → @handle 검색으로 찾아지는지 확인
-[ ] git init + GitHub 공개 저장소 생성
-[ ] .gitignore: .env, *.db, __pycache__/
-[x] README에 4종 링크 자리 확보 (docs/07_github_provenance.md §5)
-    — R1 대응으로 메모리 링크가 정적(비인증) / 대화형(가입) 둘로 갈라졌다
-[ ] docs/ 세트 커밋
-[ ] 첫 기억 저장: 저장 규약 / 스택 결정 / 전환점 결정
-```
-
----
-
-## 3. 페이즈 종료 체크리스트 (매 페이즈)
-
-```
-[ ] 이 페이즈의 코드 산출물이 전부 커밋됐는가? (docs/05_roadmap.md)
-[ ] 이 페이즈의 저장할 이벤트가 전부 저장됐는가?
-[ ] 결정 이벤트 4요소가 전부 채워졌는가? (커밋 해시 포함)
-[ ] 버그가 나왔다면 전부 "증상 + 근본 원인 링크"로 저장됐는가?
-[ ] 엔티티 이름이 표준 사전과 일치하는가?
-[ ] 이벤트 밀도 목표에 맞는가? (docs/05_roadmap.md 하단 표)
-[ ] 게임이 여전히 플레이 가능한가?
-```
-
----
-
-## 4. 공개 전환 체크리스트 (Phase 5 — 되돌리기 어렵다)
-
-> **Public read 기능이 없으므로(R1) "전환" 스위치는 존재하지 않는다.** 공개는 두 경로를
-> 각각 세우는 작업이다: **정적 export**(비인증) + **멤버 초대 & sample 프로젝트**(대화형).
-
-```
-[ ] docs/06_memory_protocol.md §5 공개 금지 목록으로 전체 이벤트 훑기
-    (처음부터 규약을 지켰다면 여기서 걸리는 게 없어야 정상이다.
-     걸리는 게 많다면 그건 규약이 안 지켜졌다는 뜻 — 그 자체가 교훈)
-[ ] 커밋 히스토리에 실명/키/비용/잡담이 없는가? (force push는 최후 수단)
-
-경로 A — 비인증 방문자 (정적)
-[ ] 그래프 → 정적 HTML export 스크립트 (이벤트 본문 + 엔티티 + 시간축)
-[ ] GitHub Pages 배포
-[ ] 이벤트의 커밋 해시가 GitHub 커밋으로 링크되는가 (PQ의 정적판)
-
-경로 B — 가입 유저 (대화형, 라이브)
-[ ] 멤버 초대 경로 확인 — 신규 가입자가 AiAkivRogueLike를 실제로 받는가
-[ ] ★ 쓰기가 실제로 막혀 있는가 (readonly 강제 검증)  ← 열려 있으면 그래프가 오염된다
-[ ] 다른 인증 계정에서 MCP read 실제 확인
-[ ] ★ DQ1 / DQ2 / IQ1 / IQ2 / BQ1 / BQ2 / BQ3 / PQ 를 그래프에 직접 던져본다
-    → 답이 안 나오는 쿼리가 있으면 그건 저장 규약을 어긴 지점이다. 기록해 둔다.
-
-공통
-[ ] 커뮤니티 분석 실행 — auto-tag 주제 묶음 실데이터 확인
-[ ] 배포 URL / GitHub / 정적 메모리 / sample 프로젝트 — 4종 상호 링크
-[ ] 랜딩·마켓 리스팅에 BQ1/BQ2 실제 질답 캡처
-[ ] 투어의 "sample 프로젝트 심문 단계" 대상으로 연결 (빈 계정 문제 해결 — §5)
-```
-
----
-
-## 5. 온보딩 연결 — 이제 이게 **공개 메커니즘 그 자체**다
-
-R1이 실현되면서 이 절은 "나중에 갚을 빚"에서 **공개 경로의 본체**로 승격됐다.
-sample 프로젝트가 곧 공개 수단이고, 동시에 빈 계정 문제의 해답이다.
-
-- **빈 계정 문제**: 신규 사용자는 기억이 1개뿐인 그래프를 본다. 가입 시 **Delve sample
-  프로젝트**(라이브 읽기전용)를 받으면, 처음부터 "제대로 쌓인 그래프"를 심문할 수 있다.
-  → **R1의 우회로가 이 문제의 해결책과 같은 것이었다.**
-- **퍼널**: 정적 페이지에서 "왜"를 읽는다 → "직접 물어보려면?" → 가입 → sample 심문.
-  비인증 방문자가 로그인 벽에서 이탈하지 않는다.
-- **랜딩 / 마켓 리스팅**: BQ1·BQ2의 실제 질답 캡처를 예고편으로.
-- **devlog 시리즈**: Phase당 1편 ("AI 공유 메모리로 로그라이크 만들기"). 각 글이
-  **정적 메모리 페이지**의 해당 지점으로 링크 = top-of-funnel (비인증도 열린다).
-- **투어 마지막 CTA**: "sample 프로젝트에 물어보세요" → "당신 프로젝트도 이렇게" 순서.
+An anonymous visitor reads the static “why,” follows a prompt to ask their own question, signs up, and receives the live read-only Delve sample. The same sample supports landing-page evidence, devlogs, and the final product tour without inventing separate demo data.

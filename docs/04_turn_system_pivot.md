@@ -1,189 +1,73 @@
-# 04. 전환점 — 턴 처리: 즉시판정 → 에너지 스케줄러
+# 04. Architectural Pivot — Lockstep to an Energy Scheduler
 
-> **이것이 이 프로젝트에서 유일하게 미리 설계하는 통과 지점이다.**
-> 다른 어떤 사건(버그·리뷰·밸런스)도 사전에 설계하지 않는다. 실개발이 알아서 만든다.
->
-> DQ1 "전투 시스템 설계가 지금까지 어떻게 바뀌었어?"의 답이 되는 사건.
+## 0. Why this pivot
 
-## 0. 왜 이 전환점인가 (그리고 원 기획의 전환점을 왜 버렸나)
+The original proposal staged a real-time game and later converted it to turn-based play. That transition would not be genuine in a server-authoritative FastAPI design. Instead, Delve uses a constraint that naturally appears during development: one enemy speed works with lockstep turns, but three unequal speeds do not.
 
-원 기획(`ops/demo_scenario.md`)은 **"실시간 전투 → 턴제 전환"** 을 통과 지점으로
-잡았다. 그러나 [03_architecture.md](03_architecture.md)에서 FastAPI 서버 권위
-구조를 채택한 이상, 실시간 전투는 **애초에 존재할 수 없다** (실시간이면 로직이
-클라이언트 JS로 넘어가고, 그건 이 프로젝트의 전제를 부순다). 존재할 수 없는 단계를
-거쳤다고 기록하면 그게 바로 **연출된 히스토리**이고, 개발자 눈에 즉시 티가 난다.
+## 1. v1 lockstep — implemented and shipped in Phase 1
 
-그래서 **같은 자리를 실제로 일어날 전환으로 교체한다.**
+One valid player input caused the player and every living enemy to act exactly once. With one enemy type and no speed mechanic, this was the smallest correct design, not a mistake. The energy scheduler was rejected at this stage as needless complexity.
 
-**즉시판정 → 에너지 스케줄러**는 로그라이크를 실제로 만들면 거의 반드시 겪는 전환이다.
-Rogue·NetHack·DCSS 전부 에너지(또는 등가) 시스템을 갖고 있고, 그건 처음부터
-그렇게 설계해서가 아니라 **속도가 다른 몬스터를 넣는 순간 순진한 구조가 깨지기
-때문**이다. 우리도 똑같이 깨질 것이다.
+Decision contract:
 
-## 1. v1 — 즉시판정 (lockstep). Phase 1에서 실제로 채택하고 실제로 출시한다.
+- **What:** one input equals one action for every actor.
+- **Why:** it made the core loop playable with the fewest moving parts.
+- **Rejected alternative:** an energy system had no benefit under the Phase 1 constraints.
+- **Evidence:** the actual Phase 1 implementation and commit.
 
-```python
-def process_turn(state, player_action):
-    apply(state, state.player, player_action)   # 플레이어 1행동
-    for enemy in state.enemies:                 # 모든 적이 정확히 1행동
-        apply(state, enemy, ai.decide(state, enemy))
-    state.turn += 1
-```
+## 2. The real fracture in Phase 2
 
-**플레이어 입력 1회 = 모든 액터가 각각 1회 행동.** 30줄이면 끝난다.
+| Enemy | Speed | Intended behavior |
+|---|---:|---|
+| Rat | 150 | 1.5× the player’s rate |
+| Goblin | 100 | equal to the player |
+| Golem | 60 | 0.6× the player’s rate |
 
-### v1은 틀린 결정이 아니다 — 그때는 맞았다
+Lockstep cannot express those ratios: every enemy still acts once per input. A failing or constraining test makes this mismatch observable before the rewrite.
 
-Phase 1의 조건: **적은 Goblin 1종, 속도 개념 없음.** 이 조건에서 에너지 시스템은
-명백한 과설계다. 액터마다 게이지를 굴리고 스케줄러 루프를 돌리는 복잡도를 지불하고
-얻는 것이 0이다.
+## 3. Alternatives
 
-> **결정 이벤트에 이 맥락을 반드시 남긴다.** "v1이 나빴다"가 아니라 **"v1은 당시
-> 조건에서 옳았고, 조건이 바뀌어 무효가 됐다"** 가 기록되어야 한다. 결정의 진화란
-> 그런 모양이고, 이게 DQ1이 실제로 보여주려는 것이다.
+### A. Keep lockstep and add per-enemy counters — rejected
 
-**v1 결정 이벤트에 기록할 4요소:**
+This is quick and minimally invasive, but it duplicates scheduling state, handles the player asymmetrically, and grows special cases for every future speed effect.
 
-- **무엇을**: 턴 처리를 즉시판정(1입력 = 전원 1행동)으로 구현
-- **왜**: 적 1종·속도 개념 없음 → 가장 단순한 구조로 코어 루프를 먼저 굴린다
-- **고려한 대안과 기각 이유**: 에너지 시스템 — 현 조건에서 얻는 게 없는 과설계.
-  (단, **적에 속도를 넣는 순간 재검토해야 함**을 이벤트에 명시)
-- **커밋 해시**: (Phase 1 구현 커밋)
+### B. Float-time priority queue — rejected
 
-## 2. 파열 — Phase 2에서 적 3종을 넣는 순간
+This is general and supports variable action costs, but float ordering complicates serialization and can undermine exact replay. It is more machinery than this small game needs.
 
-[02_game_design.md](02_game_design.md)의 적 스펙:
+### C. Integer energy — adopted
 
-| 적 | speed | 의미 |
-|---|---|---|
-| Rat | 150 | 플레이어보다 **1.5배 빠름** |
-| Goblin | 100 | 동등 |
-| Golem | 60 | **0.6배 느림** |
+Every internal tick adds each actor’s integer speed. An actor may act while energy is at least 100 and spends 100 per action. Stable actor order breaks ties. Residual energy carries forward.
 
-v1 구조로 "Rat은 1.5번 행동한다"를 표현할 방법이 **없다.** 루프가
-`for enemy in enemies: act_once(enemy)` 이기 때문이다.
+The corrected execution order is:
 
-여기서 나오는 유혹이 §3의 대안 A다.
+1. A new player starts with energy 100.
+2. Apply one valid player action and subtract 100.
+3. Advance internal ticks until the player reaches 100 again.
+4. On each tick, every living actor gains `speed`.
+5. Enemies act in stable list order while their energy is at least 100.
+6. Return once the player can act again.
+7. Preserve residual energy for the next input.
 
-## 3. 대안 검토 (전부 실제로 검토하고, 기각 이유를 이벤트에 남긴다)
+Integers preserve deterministic replay, represent all three speeds, and treat player and enemies symmetrically.
 
-### 대안 A — 즉시판정 유지 + 적별 누적 카운터 hack
+## 4. Actual migration cost
 
-```python
-enemy.tick += enemy.speed
-while enemy.tick >= 100:
-    act_once(enemy); enemy.tick -= 100
-```
-
-- **장점**: 기존 구조를 안 건드린다. 30분이면 된다.
-- **기각 이유**:
-  1. 플레이어는 여전히 특별 취급 — 플레이어에게 가속/둔화를 걸 수 없다.
-  2. **보스의 "HP 50% 이하 각성(speed 150)"** 이 구현 불가하거나 특수 케이스 코드가 된다.
-  3. 상태이상(가속/둔화)이 들어오면 카운터 로직이 액터마다 곱해지며 폭발한다.
-  4. 결국 에너지 시스템을 **잘못된 형태로 재발명**하는 것. 지금 지불하는 게 싸다.
-
-### 대안 B — 우선순위 큐 스케줄러 (next_time 기반, float 시간축)
-
-```python
-heapq.heappush(queue, (actor.next_time, actor.id))
-actor.next_time += 100.0 / actor.speed
-```
-
-- **장점**: 이론적으로 가장 일반적. 가변 행동 코스트(공격은 느리게, 이동은 빠르게)까지
-  자연스럽다.
-- **기각 이유**:
-  1. **부동소수점 시간축은 직렬화·재현이 어렵다.** 세이브/로드 후 float 누적 오차로
-     행동 순서가 어긋날 수 있다 — [03_architecture.md](03_architecture.md) §6의
-     결정론 규칙과 정면 충돌.
-  2. 동점(tie) 처리 규칙이 필요하고, 그게 또 재현성 변수다.
-  3. 우리 게임에 가변 행동 코스트가 없다. 얻는 게 없다.
-
-### 대안 C — 에너지 시스템 (정수) ★ 채택
-
-```python
-ENERGY_THRESHOLD = 100
-
-def process_turn(state, action):
-    events = apply_player(state, action)   # invalid이면 여기서 중단 (에너지·turn 불변)
-    state.turn += 1                        # turn = 플레이어가 소비한 행동 수 (발견 2)
-    if descended(events):
-        return events                      # 새 층이 에너지를 리셋 (아래 참고)
-    state.player.energy -= ENERGY_THRESHOLD
-    events += advance_until_player_ready(state)
-    return events
-
-def advance_until_player_ready(state):
-    events = []
-    while state.player.energy < ENERGY_THRESHOLD:
-        for actor in state.actors:         # 살아 있는 액터가 speed만큼 충전
-            if actor.alive:
-                actor.energy += actor.speed
-        for enemy in state.enemies:        # 결정론: 고정 순서, 살아 있는 적만
-            while enemy.energy >= ENERGY_THRESHOLD:
-                if state.status != "playing":
-                    return events           # 플레이어 사망 → 즉시 중단
-                events += apply(state, enemy, ai.decide(state, enemy))
-                enemy.energy -= ENERGY_THRESHOLD
-    return events
-```
-
-> **크리틱 Phase 2 사전 리뷰 발견 1이 실행 순서를 바로잡았다.** 최초 의사코드는
-> 플레이어(actors[0])를 적과 같은 루프에서 처리해, 플레이어가 임계치에 도달하면 적의
-> 추가 행동 전에 반환할 수 있었다 — Rat의 다중 행동이 부정확해진다. 위 구조는
-> **플레이어 입력을 먼저 소비**하고, 그다음 플레이어가 다시 행동 가능해질 때까지
-> 내부 시간을 진행하며 그 사이 적만 행동시킨다. 그리고 `turn`은 내부 tick이 아니라
-> **플레이어가 소비한 행동 수**로만 증가시켜(발견 2) 재현 표기(seed/floor/turn)의
-> 의미를 v1과 동일하게 보존한다. 층 이동은 새 층에서 에너지 경제를 리셋한다
-> (플레이어는 바로 행동 가능, 새 적은 0에서 시작).
-
-- **채택 이유**:
-  1. **정수만 쓴다** → 직렬화·재현이 완벽. 결정론 규칙과 맞는다.
-  2. **플레이어도 그냥 액터 하나다** → 가속/둔화가 플레이어에게도 자동 적용.
-  3. 보스 각성 = `speed` 필드 하나 바꾸면 끝. 특수 케이스 코드 0줄.
-  4. 로그라이크 표준 관행 — 검증된 구조.
-
-## 4. 전환 비용 (결정 이벤트에 그대로 기록)
-
-| 영역 | 변경 |
+| Area | Change |
 |---|---|
-| `engine/state.py` | `Actor`에 `speed`, `energy` 필드 추가 |
-| `engine/turn.py` | **전면 재작성** — `process_turn` → `advance_until_player_turn` |
-| `engine/ai.py` | 변경 없음 (`decide()` 인터페이스 유지 — 레이어 분리의 배당금) |
-| `app/schemas.py` | `POST /action` 응답에 `events[]` 배열 추가 (GET은 `GameView` 유지) |
-| `static/index.html` | 여러 적의 연속 행동을 순서대로 표시 |
-| `tests/test_turn.py` | 신규 — 속도 150/100/60의 행동 횟수 비율 검증 |
+| `engine/state.py` | Add `speed` and `energy` to `Actor` |
+| `engine/turn.py` | Rewrite turn advancement around integer energy |
+| `engine/ai.py` | No change to `decide()`; payoff from layer separation |
+| `app/schemas.py` | Add ordered `events[]` to action responses |
+| `static/index.html` | Render consecutive enemy actions in order |
+| `tests/test_turn.py` | Verify action-count ratios and deterministic ordering |
 
-> **세이브 포맷은 이 전환에서 바뀌지 않는다** (크리틱 Phase 2 사전 리뷰 발견 3).
-> `engine/serialize.py`는 로드맵상 **Phase 2-b에서 처음 생성**된다 — 아직 존재하지
-> 않는 포맷은 변경할 수 없다. 이 전환은 `Actor`에 `energy`를 **상태로만** 추가한다.
-> 그 `energy`가 직렬화에 포함되는 것은 2-b에서 세이브 포맷 v1을 만들 때다. 여기서
-> "세이브 포맷 변경"이라고 부르면 **없는 변경을 지어내는 것**이고, 그게 곧 연출된
-> 궤적이다.
+The turn counter remains the number of player actions, not internal ticks, preserving the meaning of `(seed, floor, turn)` across v1 and v2.
 
-**주목:** 이 전환은 엔진 내부에서 끝나지 않고 **API 계약까지 바꾼다** —
-`POST /action` 응답에 순서 있는 `events[]`가 생긴다 (Rat이 한 입력에 2번 행동하면
-클라이언트가 그 순서를 알아야 한다). 이 전환 비용을 결정 이벤트에 정확히 기록하는
-것이 DQ1의 답을 두껍게 만든다.
+## 5. Evidence rules
 
-> **BQ3는 이 전환이 아니라 2-b에 산다.** 세이브 포맷 v1(2-b에서 `energy`까지 포함해
-> 생성) → 인벤토리 추가 → 세이브 포맷 v2. 인벤토리와 세이브 포맷이 **같은 시점에**
-> 바뀌는 지점은 2-b이며, 두 이벤트가 엔티티 **"세이브 포맷"** 을 공유해 BQ3가
-> 성립한다. → [05_roadmap.md](05_roadmap.md) Phase 2-b
-
-## 5. 실행 규약 — 이 전환을 "진짜"로 만들기 위한 조건
-
-이 문서를 미리 써 둔다고 해서 **Phase 1을 건너뛰고 v2로 직행하면 안 된다.**
-그러면 전환은 일어나지 않았고, 그래프에는 결정 사슬이 아니라 결정 하나만 남는다.
-DQ1이 죽는다.
-
-**반드시 지킬 것:**
-
-1. Phase 1에서 v1을 **실제로 구현하고 커밋하고 플레이 가능한 상태로 만든다.**
-2. Phase 2에서 적 3종을 넣다가 **실제로 막히는 것을 확인한다.** (대안 A를 잠깐
-   시도해 봐도 좋다 — 그 시도 자체가 좋은 기록이다.)
-3. **그 시점에** 대안 A/B/C를 비교하고 C를 채택하는 결정 이벤트를 저장한다.
-4. v1 결정 이벤트와 v2 결정 이벤트가 엔티티 **"턴 시스템"** 을 공유하는지 확인한다.
-5. 두 이벤트 사이에 실제 시간차와 실제 커밋이 있어야 한다.
-
-> 이 문서는 **미래를 예약한 것**이지 과거를 위조한 것이 아니다. 예약한 대로
-> 실제로 겪는 것이 여기서의 유일한 정직함이다.
+1. Implement, commit, and play v1 before Phase 2.
+2. Add the three speeds and observe the real limitation.
+3. Compare A/B/C only then and record the decision.
+4. Both decisions share the existing AK canonical identifier **“턴 시스템”**.
+5. The events must have real elapsed time and distinct commits; otherwise the chain is staged.

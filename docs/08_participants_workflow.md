@@ -1,103 +1,48 @@
-# 08. 참여자와 세션 운영
+# 08. Participants and Session Workflow
 
-**사람 2 + AI 2~3이 최소 조건이다.** 이보다 적으면 "여러 사람·여러 AI가 함께 쌓은
-공유 메모리"라는 포지셔닝이 **그래프에서 아예 보이지 않는다.** 데모의 존재 이유가
-빠진다.
+## 1. Roles
 
-## 1. 참여자 구성
+| Participant | Role | Evidence |
+|---|---|---|
+| `rawdev` | Lead developer; decisions, implementation, retrospectives | DQ, BQ |
+| One colleague / `@critic` | Playtester and reviewer | IQ2, balance |
+| Claude Code / `@developer` | Primary implementation AI | IQ1 implementation |
+| ChatGPT / `@critic` | Design and balance critic | IQ1 design |
+| Gemini, optional | Independent review | IQ1 review |
 
-| 참여자 | 역할 | 저장하는 이벤트 | 걸린 쿼리 |
-|---|---|---|---|
-| **rawdev** (본인) | 리드 개발 — 결정, 구현, 회고 | `결정` `구현` `버그` `회고` 대부분 | DQ1, DQ2, BQ* |
-| **동료 1명** (지인 또는 부계정+별칭) | 플레이테스터 겸 리뷰어 | `리뷰` `밸런스`(플레이테스트) `버그` | **IQ2** |
-| **Claude Code** | 주 구현 AI | `구현` (커밋 co-author) | **IQ1** |
-| **ChatGPT** | 기획/밸런스 AI | `결정` (적 AI 설계, 수치 설계) | **IQ1** |
-| **Gemini** (선택) | 설계 리뷰 AI | `리뷰` | **IQ1** |
+## 2. Real colleague contribution
 
-## 2. 동료 확보 — 타협 불가
+Cross-user evidence cannot be narrated by the owner. The colleague must contribute from their own account through a playtest, code review, or direct fix. An alternate account with a stable alias is acceptable when it represents a genuinely separate session and attribution source.
 
-> 동료가 없으면 **IQ2가 통째로 죽고**, cross-user 시연이 불가능해진다.
-> 지인이 안 되면 **부계정 + 별칭**을 써서라도 확보한다 (콘솔 팀 관리에서 별칭 설정).
+## 3. AI attribution
 
-**동료에게 실제로 시킬 일 (연출 아님, 진짜 기여):**
+Each AI saves only from its own session. Do not copy another author’s conclusion into an event attributed to yourself. The server-stamped principal is the evidence.
 
-1. **플레이테스트** — Phase 3. 시드를 받아 플레이하고 "3층에서 Golem 2마리는 무리다"
-   같은 구체적 피드백. **시드를 포함해야 재현 가능하고, 재현 가능해야 진짜다.**
-2. **코드 리뷰** — Phase 2. PR에 코멘트. 특히 **세이브/로딩 쪽**이면 IQ2와 정확히
-   맞는다.
-3. **직접 수정** — 가능하면 PR 1개. 작아도 좋다.
+## 4. Enemy-AI collaboration example
 
-**중요:** 동료는 **자기 AiAkiv 계정에서 저장한다.** rawdev가 대신 "동료가 이렇게
-말했다"고 저장하면 작성자가 rawdev로 찍혀서 **IQ2가 죽는다.** `@handle` 검색이
-동료의 이벤트를 못 찾는다.
+1. ChatGPT designs the Rat/Goblin/Golem policy and rejects alternatives.
+2. Claude Code implements `engine/ai.py`, tests it, and commits with provenance.
+3. An independent reviewer inspects edge cases.
+4. The owner decides which findings to accept and records the outcome.
 
-## 3. AI별 저장 — 반드시 각자의 세션에서
+All events use the same existing AK canonical identifier **“적 AI”**.
 
-**IQ1이 성립하는 유일한 조건:** 설계·구현·리뷰가 **서로 다른 AI 세션에서 각각
-저장되어야 한다.**
+## 5. Session workflow
 
-```
-❌ 나쁜 예 (IQ1 사망):
-   Claude Code 세션에서 "ChatGPT가 설계했고, 내가 구현했고, Gemini가 리뷰했다"를
-   한 번에 저장  →  작성자가 전부 Claude. cross-AI 귀속이 그래프에 없다.
+At session start:
 
-✅ 좋은 예:
-   ChatGPT 세션 →  ak 적 AI 상태머신 설계 결정 저장
-   Claude 세션  →  ak 적 AI 구현 저장 (커밋 해시 포함)
-   Gemini 세션  →  ak 적 AI 리뷰 저장
-   세 이벤트 모두 엔티티 "적 AI" 공유  →  IQ1이 세 작성자를 한 번에 물어온다
-```
+1. Check the active AK target.
+2. Read the previous session from AK.
+3. Read [05_roadmap.md](05_roadmap.md).
 
-**사전 확인 필요 (Phase 0):** ChatGPT / Gemini 계정에서 같은 프로젝트
-(`AiAkivRogueLike`)로 저장이 실제로 되는지 검증한다. 이건 playbook의 웹 앱 레시피
-검증을 겸한다. → [09_risks_checklist.md](09_risks_checklist.md)
+At session end:
 
-## 4. AI 역할 분담 (Phase 2 적 AI 예시)
+1. Confirm every decision was saved under the protocol.
+2. Confirm commits and events link both ways.
+3. Update roadmap checkboxes.
 
-| 순서 | AI | 하는 일 | 저장 |
-|---|---|---|---|
-| 1 | **ChatGPT** | 적 AI 상태머신 설계 — idle/chase/flee 전이 조건, 대안(A* 추격 / 순수 랜덤 / FOV 기반)과 기각 이유 | `결정`, 엔티티 `적 AI` |
-| 2 | **Claude Code** | `engine/ai.py` 구현, 테스트, 커밋 (co-author 트레일러) | `구현`, 엔티티 `적 AI`, 커밋 해시 |
-| 3 | **Gemini** | 코드 리뷰 — 예: "Golem이 flee 하지 않는데 flee 분기를 타는 경로가 있다" | `리뷰`, 엔티티 `적 AI` |
-| 4 | rawdev | 리뷰 반영 여부 판단 | `결정` 또는 `버그` |
+One session should reach one coherent milestone. Save decisions when they occur, not as a bulk retrospective.
 
-이 4개 이벤트가 엔티티 `적 AI`를 공유하면, IQ1 하나로 **네 참여자의 기여가 한꺼번에
-나온다.** 이게 "공유 메모리"의 시각적 증명이다.
+## 6. Memory-recall demonstration
 
-## 5. 세션 운영 규칙
-
-### 매 세션 시작
-
-```
-1. ak target 확인          → AiAkivRogueLike 인지 확인
-2. ak 지난 세션 뭐 했지?    → 컨텍스트 회수 (이것 자체가 데모다)
-3. docs/05_roadmap.md 확인  → 이번 세션의 산출물과 저장할 이벤트
-```
-
-### 매 세션 종료
-
-```
-1. 이번 세션의 결정이 전부 저장됐는가? (docs/06_memory_protocol.md §8 체크리스트)
-2. 커밋 해시가 이벤트에 채워졌는가?
-3. 다음 세션에서 이어갈 지점을 저장했는가?
-```
-
-### 한 세션 = 한 마일스톤
-
-원 취지대로 **각 마일스톤이 독립된 한 세션 분량**이 되게 자른다. 세션마다 최소
-**결정 1개**가 나오도록. 결정이 하나도 안 나온 세션은 그래프에 기여가 없다 —
-스코프를 잘못 잘랐다는 신호다.
-
-## 6. AI에게 회수를 실제로 시키기 (Phase 4의 시연)
-
-버그를 만났을 때, 개발자가 직접 과거를 뒤지지 말고 **AI에게 그래프를 묻게 한다:**
-
-```
-ak 이 버그와 관련된 과거 결정 찾아줘
-```
-
-그리고 **그 과정을 기록으로 남긴다.** 방문자가 재현할 수 있는 실사례가 된다 —
-"AI가 3주 전 내 결정을 찾아왔다"는 주장이 아니라 **장면**이 된다.
-
-> 이게 BQ1·BQ2의 실물이다. 쿼리에 답이 나온다는 걸 보여주는 것보다, **개발 중에
-> 실제로 그렇게 썼다**는 게 훨씬 강하다.
+For a real bug, begin a fresh session, retrieve the related decisions from AK, diagnose from those links, implement the fix, and record both the successful recall and the resulting commit. Do not provide the answer manually to the recalling AI.

@@ -1,176 +1,65 @@
-# 07. GitHub Provenance — 커밋 ↔ 이벤트 양방향 연결
+# 07. GitHub Provenance — Bidirectional Commit/Event Links
 
-목표: 방문자가 **어느 쪽에서 출발해도** 반대편으로 건너갈 수 있게 한다.
+## 1. Event to code
 
-```
-        이벤트에서 코드로            코드에서 이벤트로
-AiAkiv ──────커밋 해시──────▶ GitHub ──────ak:evt_ 참조──────▶ AiAkiv
-```
+Every decision and bug-fix event includes its related commit hash. When design precedes implementation, save the decision first and create a separate implementation event after committing.
 
-이 양방향이 성립하면 PQ("이 결정/수정이 들어간 커밋 보여줘")는 **자동으로 답을 갖는다.**
-따로 준비할 게 없다 — 규약을 지키면 그냥 성립한다.
+## 2. Code to event
 
-## 1. 이벤트 → 코드: 커밋 해시 필수
+Use this commit shape:
 
-- **모든 `결정` 이벤트**에 관련 커밋 해시.
-- **모든 `버그` 이벤트**에 수정 커밋 해시.
-- 결정이 여러 커밋에 걸치면 전부 나열한다 (특히 턴 시스템 전환처럼 파일 6개를
-  건드리는 경우).
-- 결정이 **커밋보다 먼저** 나오는 경우(설계 → 구현): 일단 저장하고, 커밋 후
-  **별도의 `구현` 이벤트를 저장해 커밋 해시와 결정 이벤트 id를 함께 담는다.**
-  **비워두고 넘어가지 않는다.**
+```text
+<type>: <summary>
 
-  > ⚠️ **`mweft_remember_edit`으로는 해시를 채울 수 없다.** 이 도구는 엔티티와 태그만
-  > 수정하고 **이벤트 본문은 못 고친다.** (문서 초안에는 remember_edit으로 채운다고
-  > 적혀 있었고, Phase 0 첫 커밋에서 그게 틀렸음이 드러났다 — `evt_1f08127e`.)
-  > 이벤트는 **추가할 수만 있고 고칠 수 없다**는 것이 이 시스템의 성질이다.
-  > 그래서 정정도 삭제가 아니라 **새 이벤트로 남는다** — 그것 자체가 궤적이다.
+<body explaining why>
 
-## 2. 코드 → 이벤트: 커밋 메시지에 `ak:evt_` 참조
+ak:evt_<event id>
+docs: docs/xx.md
 
-주요 커밋(결정을 구현하는 커밋, 버그 수정 커밋)의 메시지 본문에 이벤트 id를 넣는다.
-
-```
-turn: 즉시판정 → 에너지 스케줄러 전환
-
-적 3종의 속도 차이(Rat 150 / Goblin 100 / Golem 60)를 lockstep 구조로는
-표현할 수 없어 에너지 시스템으로 전환. 대안 비교와 기각 이유는 아래 이벤트 참조.
-
-ak:evt_def5678abcd
-docs: docs/04_turn_system_pivot.md
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Co-Authored-By: <AI name> <noreply address>
 ```
 
-**형식 규칙:**
-- `ak:evt_<id>` — 한 줄에 하나. 여러 개면 여러 줄.
-- `docs: docs/xx.md` — 근거 문서가 있으면 repo 상대 경로.
-- 이 두 줄은 **트레일러 영역**(본문 끝, Co-Authored-By 위)에 둔다.
+Use one `ak:evt_` line per event. Put repository-relative evidence paths in `docs:`. These trailers make the GitHub side independently navigable.
 
-## 3. Claude co-author 컨벤션 — cross-AI 참여의 GitHub 쪽 증거
+## 3. AI co-authorship
 
-Claude Code가 구현한 커밋은 co-author 트레일러를 유지한다:
+When an AI materially implements a commit, include its co-author trailer. The AiAkiv event records who designed, implemented, and reviewed; Git records who contributed code.
 
-```
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
-```
+## 4. Issues and pull requests
 
-이것이 IQ1("적 AI 로직은 어떻게 구현됐어?")의 **GitHub 쪽 뒷받침**이다. AiAkiv
-그래프에서 "구현: Claude"가 나왔을 때, 방문자가 커밋을 열어보면 co-author가 실제로
-찍혀 있다. **그래프의 주장이 코드로 검증된다** — 이게 데모의 신뢰도를 만든다.
+Bug issues include the reproduction seed. PR descriptions link related event IDs. A colleague’s GitHub review remains on GitHub and the colleague separately saves their own review summary from their own AiAkiv account.
 
-동료가 직접 작성한 커밋/PR은 동료 계정으로 올라간다. 별도 규약 불필요 — git이
-알아서 귀속한다.
+## 5. Closed public loop
 
-## 4. 이슈 / PR
+The README links four surfaces: playable game, source repository, unauthenticated static memory, and the live read-only AiAkiv sample project. Static reading answers “why”; the sample project lets users ask new questions.
 
-- 이슈에 버그를 등록할 때: 본문에 **재현 시드**를 반드시 적는다
-  (`seed=42, floor=2` — [03_architecture.md](03_architecture.md) §6이 이걸 가능하게 한다).
-- PR 본문에 관련 `ak:evt_` 링크.
-- 동료의 리뷰 코멘트는 GitHub에 남기고, **동료가 자기 AiAkiv 계정에서 요약 이벤트도
-  저장**한다 (IQ2). GitHub 코멘트만으로는 그래프에 안 들어온다.
+## 6. Commit hygiene
 
-## 5. README — 4종 상호 링크 (폐루프)
+Never commit names, secrets, costs, private discussion, databases, caches, or environment files. Keep `.env`, `*.db`, and `__pycache__/` ignored.
 
-> **원래 3종이었다.** Public read 기능이 없다는 것이 확인되면서(R1) 메모리 링크가
-> **정적(비인증)** 과 **대화형(가입)** 둘로 갈라졌다. → [09_risks_checklist.md](09_risks_checklist.md) R1
+## 7. Per-commit checklist
 
-README 첫 부분에 네 링크를 나란히 둔다:
+- Does the message explain why?
+- Are all relevant event IDs present?
+- Is the evidence document linked?
+- Is AI co-authorship accurate?
+- Does the event contain this commit hash, or is a follow-up implementation event required?
 
-```markdown
-# Delve
+## 8. Historical backfill map
 
-턴제 로그라이크. **이 게임의 개발 과정 전체가 AI 공유 메모리로 남아 있습니다.**
+Old commits could not be rewritten because rebase would invalidate hashes already embedded in immutable event prose. Git notes were rejected because GitHub does not show them prominently. This append-only mapping restores the missing direction without breaking the direction that still works.
 
-- ▶ **플레이**: <배포 URL>
-- 📦 **코드**: 이 저장소
-- 🧠 **왜 이렇게 만들었나 (읽기)**: <정적 메모리 페이지 — 가입 불필요>
-- 💬 **그래프에 직접 물어보기**: <AiAkiv 가입 → Delve sample 프로젝트>
-
-git 히스토리는 *무엇이* 바뀌었는지 보여줍니다.
-메모리는 *왜* 그렇게 했는지 — 어떤 대안을 검토하고 왜 버렸는지 — 를 보여줍니다.
-
-물어볼 수 있는 것들:
-- "전투 시스템 설계가 지금까지 어떻게 바뀌었어?"
-- "가장 최근 버그랑 그 원인이 뭐야?"
-- "인벤토리랑 세이브 포맷이 왜 같은 시점에 같이 바뀌었어?"
-```
-
-**링크 하나가 늘어난 게 아니라 층이 갈라진 것이다.** 방문자는 가입 없이 궤적을 *읽고*,
-더 파고들고 싶으면 가입해서 *심문*한다. 정적 페이지가 없으면 방문자는 메모리 링크를
-클릭했다가 로그인 벽을 만나고 대부분 이탈한다 — 폐루프가 거기서 끊긴다.
-
-**"이 히스토리가 이 게임을 만들었다"의 실물** — 플레이할 수 있는 게임, 읽을 수 있는
-코드, 읽을 수 있는 궤적, 물어볼 수 있는 메모리가 서로를 가리킨다.
-
-## 6. 커밋 위생 (공개 전제)
-
-[06_memory_protocol.md](06_memory_protocol.md) §5의 공개 금지 목록은 **커밋 메시지에도
-그대로 적용된다.** 커밋 히스토리는 나중에 못 지운다(force push를 하지 않는 한).
-
-- ❌ 실명, 키/토큰, 비용 수치, 잡담
-- ✅ `.gitignore`에 `.env`, `*.db`, `__pycache__/`
-
-## 7. 체크리스트 (커밋할 때마다)
-
-```
-[ ] 이 커밋이 결정/버그 수정을 담고 있는가? → 대응하는 ak 이벤트가 있는가?
-[ ] 커밋 메시지에 ak:evt_ 참조를 넣었는가?
-[ ] 근거 문서가 있으면 docs: 경로를 넣었는가?
-[ ] AI가 구현했으면 Co-Authored-By 트레일러가 있는가?
-[ ] 이벤트 쪽에 이 커밋 해시를 채워 넣었는가? (양방향)
-[ ] 커밋 메시지에 공개 금지 항목이 없는가?
-```
-
-## 8. 소급 매핑 — 역참조가 빠진 커밋 (Phase 0~1)
-
-§7의 체크리스트는 Phase 1 커밋 5개에서 지켜지지 않았다. 이벤트 → 커밋 방향(§1)은
-성립하지만 **커밋 → 이벤트 방향(§2)이 끊겼다.** 이 표가 그 방향을 복구한다.
-
-### 왜 커밋 메시지를 직접 고치지 않았나
-
-`git rebase`로 메시지에 `ak:evt_`를 넣으면 **해시가 전부 바뀐다.** 그런데 그 옛 해시
-(`6d78fb8` / `84d6eca` / `2dbc412`)는 **이미 이벤트 본문에 박혀 있고, 이벤트 본문은
-고칠 수 없다** (§1의 경고 — `mweft_remember_edit`은 엔티티·태그만 고친다).
-
-즉 rebase는 **끊긴 한쪽을 고치려고 살아 있는 반대쪽을 끊는 거래**다. 방문자가 그래프에서
-해시를 클릭했을 때 404가 나면, "그래프의 주장이 코드로 검증된다"(§3)는 데모의 신뢰도가
-바로 무너진다. 그래서 기각했다.
-
-`git notes`도 검토했다 — 해시를 바꾸지 않고 커밋에 메모를 붙일 수 있다. 하지만 GitHub
-웹 UI가 notes를 표시하지 않으므로 **방문자에게 안 보인다.** 보이지 않는 provenance는
-provenance가 아니다. 기각.
-
-남은 방법은 **추가 전용 보정** — 이 표다. 이것은 §1이 이벤트에 대해 선언한 원칙
-("이벤트는 추가할 수만 있고 고칠 수 없다. 정정도 삭제가 아니라 새 이벤트로 남는다 —
-그것 자체가 궤적이다")을 **git 히스토리에도 똑같이 적용한 것**이다. 규약을 어긴 기록이
-지워지지 않고 남는 편이, 어긴 적 없는 것처럼 보이는 히스토리보다 정직하다.
-
-### 매핑표
-
-| 커밋 | 이벤트 | 종류 | 내용 |
-|---|---|---|---|
-| `229aaac` | `evt_7f0846bfc503419599493d07176a94d0` | 결정 | 스택: FastAPI + 순수 Python (TS+Canvas 기각) |
-| `229aaac` | `evt_87b564e85ee14c4695bcec3435671e81` | 결정 | 사전 설계 전환점 교체 (즉시판정 → 에너지) |
-| `229aaac` | `evt_d61ded1d63a44403857b5881457f70ff` | 결정 | 저장 규약 확정 + 문서 세트 |
-| `229aaac` | `evt_1f08127e492f4077a9914836b843f164` | 구현 | Phase 0 첫 커밋. 규약 자체의 버그 발견 |
-| `ef0c06e` | `evt_1f08127e492f4077a9914836b843f164` | 정정 | provenance 규약 정정 (remember_edit으로는 해시를 못 채운다) |
-| `ff178e7` | `evt_132fec673db54ee9ad4329928f7e1a00` | 결정 | 실행 문서 = "Phase 1이 만족시켜야 할 실행 계약" |
-| `009ee4d` | `evt_4f8fe2e0e48246a2bc5147eda534d085` | 결정 | PLAN.md를 만들지 않는다. 05_roadmap이 단일 출처 |
-| `6d78fb8` | `evt_44979725cf6e497598edc5bff3fba4bd` | 결정 | 던전 생성 = 랜덤 방 배치 + L자 복도 (BSP 기각) |
-| `6d78fb8` | `evt_f9b9fda8c96b47bcb1982c18f32b90df` | 구현 | 토대 — rng / state / dungeon. Actor에 speed 없음 |
-| `84d6eca` | `evt_3efb024c216149c69a12e85fe7c43096` | 결정 ★ | 턴 처리 v1: 즉시판정 채택 (DQ1의 첫 고리) |
-| `84d6eca` | `evt_6d1ab84de281468a8b3df413b514b5bd` | 구현 | FOV / 전투 / 적 AI / turn v1 |
-| `2dbc412` | `evt_fbe97e9dc00b43dd97ae00840f83cd49` | 구현 | FastAPI 경계 + 프론트. events[] 의도적 부재 |
-
-`229aaac`와 `ef0c06e`는 이미 커밋 메시지에 `ak:evt_`가 있다 — 표에는 완결성을 위해 넣었다.
-**나머지 5개(`ff178e7` / `009ee4d` / `6d78fb8` / `84d6eca` / `2dbc412`)가 이 표로만
-역참조를 갖는 커밋이다.**
-
-커밋 없는 이벤트도 있다. `evt_edebe34a`(Phase 1 회고)와 `evt_d38f1dc8`(Phase 1 리뷰)는
-코드를 바꾸지 않았으므로 연결할 해시가 없다 — 규약 위반이 아니다.
-
-### 이 표가 필요 없어지는 조건
-
-**Phase 2부터는 §7 체크리스트를 커밋 전에 실제로 돌린다.** 이 표는 소급 보정이지
-정상 경로가 아니다. 표에 행이 늘어나면 그건 규약이 또 깨졌다는 뜻이다.
+| Commit | Event | Meaning |
+|---|---|---|
+| `229aaac` | `evt_7f0846bfc503419599493d07176a94d0` | Stack decision |
+| `229aaac` | `evt_87b564e85ee14c4695bcec3435671e81` | Pivot replacement |
+| `229aaac` | `evt_d61ded1d63a44403857b5881457f70ff` | Memory protocol and document set |
+| `229aaac` | `evt_1f08127e492f4077a9914836b843f164` | Phase 0 implementation |
+| `ef0c06e` | `evt_1f08127e492f4077a9914836b843f164` | Provenance-protocol correction |
+| `ff178e7` | `evt_132fec673db54ee9ad4329928f7e1a00` | Running contract |
+| `009ee4d` | `evt_4f8fe2e0e48246a2bc5147eda534d085` | Roadmap as single source of truth |
+| `6d78fb8` | `evt_44979725cf6e497598edc5bff3fba4bd` | Dungeon algorithm decision |
+| `6d78fb8` | `evt_f9b9fda8c96b47bcb1982c18f32b90df` | RNG/state/dungeon foundation |
+| `84d6eca` | `evt_3efb024c216149c69a12e85fe7c43096` | v1 lockstep decision |
+| `84d6eca` | `evt_6d1ab84de281468a8b3df413b514b5bd` | FOV/combat/AI/turn v1 |
+| `2dbc412` | `evt_fbe97e9dc00b43dd97ae00840f83cd49` | FastAPI boundary and frontend |

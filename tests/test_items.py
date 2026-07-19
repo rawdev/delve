@@ -1,8 +1,3 @@
-"""아이템 — 줍기 / 사용(포션·스크롤) / 장착(검·방패)과 전투 반영.
-
-인벤토리가 GameState에 들어오면서 세이브 포맷이 v1 → v2로 올라갔다 (BQ3). 여기서는
-아이템 규칙 자체를 HTTP 없이 순수 Python으로 검증한다.
-"""
 
 from __future__ import annotations
 
@@ -14,7 +9,7 @@ from engine.state import Item, ItemOnFloor, make_enemy
 
 def _game(seed: int = 42):
     state, rng = turn.new_game("it", seed)
-    # 던전이 뿌린 아이템 대신 통제된 상황을 쓴다.
+
     state.floor_items = []
     state.inventory = []
     state.equipped = {"weapon": None, "armor": None}
@@ -22,7 +17,6 @@ def _game(seed: int = 42):
 
 
 def _damage(state, attacker, target) -> int:
-    """전투를 한 번 돌려 데미지를 읽고 target을 원상복구한다."""
     hp_before = target.hp
     combat.attack(state, attacker, target)
     dmg = hp_before - target.hp
@@ -66,7 +60,7 @@ def test_use_potion_heals_but_not_over_max() -> None:
 
     actions.use(state, "p1")
 
-    assert p.hp == p.max_hp  # 10 회복이지만 최대치 초과 안 함
+    assert p.hp == p.max_hp
     assert state.inventory == []
 
 
@@ -109,7 +103,7 @@ def test_equip_shield_reduces_incoming_damage() -> None:
     p = state.player
     enemy = make_enemy("goblin", 0, p.x + 5, p.y)
 
-    base = _damage(state, enemy, p)  # 적이 플레이어를 때린다
+    base = _damage(state, enemy, p)
     state.inventory = [Item(id="a1", kind="shield")]
     actions.equip(state, "a1")
     reduced = _damage(state, enemy, p)
@@ -125,33 +119,31 @@ def test_equip_swaps_and_returns_previous_to_bag() -> None:
     actions.equip(state, "w2")
 
     assert state.equipped["weapon"].id == "w2"
-    assert [it.id for it in state.inventory] == ["w1"], "쓰던 무기가 가방으로 돌아와야 한다"
+    assert [it.id for it in state.inventory] == ["w1"]
 
 
 def test_scroll_does_not_stack_on_an_actor() -> None:
-    """귀환 스크롤이 입구의 적 위로 이동하지 않는다 (evt_5e7f2360 중간2)."""
     state, _ = _game()
     p = state.player
     p.x, p.y = p.x + 5, p.y + 5
     sx, sy = actions._floor_start(state)
-    blocker = make_enemy("goblin", 0, sx, sy)  # 입구를 막고 선 적
+    blocker = make_enemy("goblin", 0, sx, sy)
     state.actors = [p, blocker]
     state.inventory = [Item(id="s1", kind="scroll")]
 
     actions.use(state, "s1")
 
-    assert (p.x, p.y) != (sx, sy), "적이 선 입구 칸에 겹쳐 서면 안 된다"
-    assert state.actor_at(p.x, p.y) is p, "아무와도 좌표가 겹치지 않는다"
+    assert (p.x, p.y) != (sx, sy)
+    assert state.actor_at(p.x, p.y) is p
     assert state.map.walkable(p.x, p.y)
 
 
 def test_enemies_ignore_player_equipment() -> None:
-    """장착 보너스는 플레이어만 받는다 — 적의 공격/방어에는 반영되지 않는다."""
     state, _ = _game()
     p = state.player
     enemy = make_enemy("goblin", 0, p.x + 5, p.y)
     state.equipped = {"weapon": Item(id="w", kind="sword"), "armor": Item(id="a", kind="shield")}
 
-    # 적이 적을 때리는 상황엔 플레이어 장착이 끼어들지 않는다.
+
     other = make_enemy("goblin", 1, p.x + 6, p.y)
     assert _damage(state, enemy, other) == max(1, enemy.atk - other.def_)
