@@ -44,6 +44,10 @@
   #banner { font-size: 18px; font-weight: bold; min-height: 1.2em; }
   .dead { color: #e06c75; } .won { color: #7ee081; }
   footer { font-size: 12px; color: #565e6b; text-align: center; }
+  /* Movement hint — the one thing a first-time player must know, kept legible
+     instead of buried in the dim shortcut run-on below. */
+  .movehint { font-size: 14px; color: #9aa3b2; margin: 0 0 10px; }
+  .movehint b { color: #7aa2f7; }
   a { color: #7aa2f7; }
 </style>
 </head>
@@ -76,9 +80,10 @@
 <div id="inv"></div>
 
 <footer>
-  <b>Click a tile</b> to step toward it (or attack an enemy) &nbsp;·&nbsp;
+  <p class="movehint">Move with the <b>arrow keys</b>, or <b>click a tile</b> to step toward it
+  (click an enemy to attack).</p>
   Use the <b>buttons</b> for other actions.<br>
-  <span style="color:#454c58">Optional shortcuts: move with <b>arrow keys</b>/<b>hjkl</b>
+  <span style="color:#454c58">Optional shortcuts: <b>hjkl</b>
   (+<b>yubn</b> diagonally) · wait <b>.</b> · descend <b>&gt;</b> · pick up <b>g</b>
   · bag <b>i</b> · new game <b>r</b> · use/equip with <b>number keys</b> while the bag is open</span><br>
   Death starts a new run (permadeath).<br>
